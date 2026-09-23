@@ -1,0 +1,231 @@
+/*
+ * Fathomark Copilot theme
+ *
+ * The palette is lifted verbatim from the LLaMA CLI so the Obsidian plugin and
+ * the terminal read as one product:
+ *   obsidian-mcp-server/src/cli/theme/builtin/tokyonight-dark.ts  (Tokyo Night)
+ *   obsidian-mcp-server/src/cli/theme/semantic-tokens.ts          (semantic layer)
+ *
+ * Values stay as hex, matching their source, rather than being converted to the
+ * oklch used by global.css — a converted token no longer greps back to the CLI.
+ *
+ * This file is imported by global.css, so importing global.css is enough:
+ *
+ *   import "#styles/global.css"
+ *   <div class="dark theme-fathomark">…</div>
+ *
+ * The semantic tokens (--fm-*) are the contract. Components should never reach
+ * for a raw Tokyo Night value; if a colour has no --fm-* name, it has no meaning
+ * yet, and giving it one is a design decision. The same goes for the sizes below:
+ * a literal `13px` or `10px` in a component is a token that has not been named.
+ *
+ * Documented in Storybook under Foundations, and in docs/copilot-ui.md.
+ */
+
+.theme-fathomark {
+  color-scheme: dark;
+
+  /* ---- surfaces ------------------------------------------------------- */
+  --fm-shell: #14151f; /* the panel itself */
+  --fm-panel: #1a1b26; /* composer, chips, sheets */
+  --fm-card: #171822; /* cards inside the transcript */
+  --fm-raised: #1f2231; /* hover, pressed, the active tool row */
+  --fm-scrim: #0d0e15; /* behind a sheet */
+
+  /* ---- lines ---------------------------------------------------------- */
+  --fm-line: #262a3d; /* card borders */
+  --fm-line-strong: #3b4261; /* the composer, focus outlines */
+
+  /* ---- text ----------------------------------------------------------- */
+  --fm-text: #c0caf5;
+  --fm-text-dim: #a9b1d6;
+  --fm-text-muted: #8f97c0; /* lightened from the CLI's #565f89, which fails 4.5:1 on --fm-shell */
+  --fm-text-faint: #565f89; /* decoration and disabled only — never body copy */
+
+  /* ---- meaning -------------------------------------------------------- */
+  /* Colour is never decoration here. Each of these answers "where did this
+     come from?" or "what is the run doing?" — see docs/copilot-ui.md. */
+  --fm-brand: #9b7ff6; /* the agent itself: send, apply, the streaming caret */
+  --fm-brand-ink: #14151f; /* text on a --fm-brand fill; white fails 4.5:1 */
+  --fm-brand-tint: #221f3a;
+  --fm-brand-tint-line: #3a2f63;
+  --fm-brand-text: #b9a3ff; /* brand-coloured text on a dark tint */
+
+  --fm-vault: #73daca; /* evidence from the user's own vault */
+  --fm-vault-tint: #16251f;
+  --fm-vault-tint-line: #23463f;
+
+  --fm-external: #7aa2f7; /* evidence fetched over the network (Wikipedia) */
+  --fm-external-tint: #151d2e;
+  --fm-external-tint-line: #2d3d63;
+
+  --fm-pending: #e0af68; /* unsupported claims, source conflicts, budget pressure, awaiting approval */
+  --fm-pending-tint: #1e1a15;
+  --fm-pending-tint-line: #4a3b2a;
+  --fm-pending-text: #cdb392;
+
+  --fm-error: #f7768e;
+  --fm-error-tint: #1e1620;
+  --fm-error-tint-line: #5c2f3c;
+  --fm-error-text: #f7a3b1;
+
+  --fm-ok: #9ece6a; /* the model is reachable; nothing else */
+
+  --fm-diff-added: #243e4a;
+  --fm-diff-added-text: #a9dfc9;
+  --fm-diff-removed: #4a272f;
+  --fm-diff-removed-text: #f7a3b1;
+
+  /* ---- type ----------------------------------------------------------- */
+  /* Two voices: prose for anything a person wrote or the model says, mono for
+     machine facts (tool names, token counts, paths, line ranges, run ids). */
+  --fm-font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  --fm-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --fm-size-title: 15px; /* a sheet's title */
+  --fm-size-heading: 13px; /* a screen name in a sub-screen header */
+  --fm-size-body: 13px; /* everything the model says */
+  --fm-size-label: 12.5px; /* control labels, file names, list rows */
+  --fm-size-note: 12px; /* secondary prose under a heading */
+  --fm-size-caption: 11.5px; /* section headings, helper text, mono tool rows */
+  --fm-size-micro: 10.5px; /* badges, and mono counters in the chrome */
+
+  --fm-leading-body: 1.62;
+  --fm-leading-note: 1.5;
+  --fm-leading-tight: 1.45;
+
+  /* ---- metrics -------------------------------------------------------- */
+  --fm-space-1: 2px;
+  --fm-space-2: 4px;
+  --fm-space-3: 6px;
+  --fm-space-4: 8px;
+  --fm-space-5: 10px;
+  --fm-space-6: 12px;
+  --fm-space-7: 16px;
+
+  --fm-radius-badge: 6px;
+  --fm-radius-control: 8px; /* icon buttons, chips */
+  --fm-radius-card: 10px; /* list rows, source cards */
+  --fm-radius-panel: 12px; /* the composer, tool-activity group */
+  --fm-radius-sheet: 16px; /* a sub-screen sheet */
+
+  --fm-control-xs: 22px; /* a remove affordance inside a row */
+  --fm-control-sm: 28px; /* chips in the composer toolbar */
+  --fm-control-md: 32px; /* header icon buttons, the send button at 30 */
+  --fm-control-lg: 36px; /* primary actions */
+
+  --fm-dot: 6px; /* the status dot; 5px inside a badge */
+  --fm-meter: 4px; /* the budget bar */
+  --fm-hairline: 1px;
+
+  --fm-panel-width: 400px; /* the reference width; the layout must survive 320–520 */
+  --fm-header-height: 44px;
+  --fm-gutter: 12px;
+
+  font-family: var(--fm-font-sans);
+}
+
+/*
+ * The shadcn variables, so the components in ui/ inherit the theme.
+ *
+ * The doubled class is deliberate. Components use `dark:` utilities, which only
+ * apply under `.dark` (see the @custom-variant in global.css), so the plugin root
+ * carries BOTH classes:
+ *
+ *   <div class="dark theme-fathomark">
+ *
+ * `.dark` is declared later in global.css than this file's import, so at equal
+ * specificity it would win and repaint the panel in the stock dark palette.
+ * `.theme-fathomark.theme-fathomark` outranks it without !important.
+ */
+.theme-fathomark.theme-fathomark {
+  --background: var(--fm-shell);
+  --foreground: var(--fm-text);
+  --card: var(--fm-card);
+  --card-foreground: var(--fm-text);
+  --popover: var(--fm-panel);
+  --popover-foreground: var(--fm-text);
+  --primary: var(--fm-brand);
+  --primary-foreground: var(--fm-brand-ink);
+  --secondary: var(--fm-raised);
+  --secondary-foreground: var(--fm-text);
+  --muted: var(--fm-card);
+  --muted-foreground: var(--fm-text-muted);
+  --accent: var(--fm-raised);
+  --accent-foreground: var(--fm-text);
+  --destructive: var(--fm-error);
+  --destructive-foreground: var(--fm-error-tint);
+  --border: var(--fm-line);
+  --input: var(--fm-line-strong);
+  --ring: var(--fm-brand);
+  --radius: 0.625rem;
+
+}
+
+/* Machine facts are mono wherever they appear. */
+.theme-fathomark :is(code, kbd, samp, .fm-mono) {
+  font-family: var(--fm-font-mono);
+}
+
+/*
+ * Tailwind utilities for the tokens that carry meaning: bg-fm-vault,
+ * text-fm-pending, border-fm-line, text-fm-body, rounded-fm-card, font-fm-mono.
+ * Surfaces and base text are reachable through the shadcn names above and are
+ * deliberately not duplicated here.
+ */
+@theme inline {
+  --color-fm-brand: var(--fm-brand);
+  --color-fm-brand-ink: var(--fm-brand-ink);
+  --color-fm-brand-tint: var(--fm-brand-tint);
+  --color-fm-brand-line: var(--fm-brand-tint-line);
+  --color-fm-brand-text: var(--fm-brand-text);
+  --color-fm-vault: var(--fm-vault);
+  --color-fm-vault-tint: var(--fm-vault-tint);
+  --color-fm-vault-line: var(--fm-vault-tint-line);
+  --color-fm-external: var(--fm-external);
+  --color-fm-external-tint: var(--fm-external-tint);
+  --color-fm-external-line: var(--fm-external-tint-line);
+  --color-fm-pending: var(--fm-pending);
+  --color-fm-pending-tint: var(--fm-pending-tint);
+  --color-fm-pending-line: var(--fm-pending-tint-line);
+  --color-fm-pending-text: var(--fm-pending-text);
+  --color-fm-error: var(--fm-error);
+  --color-fm-error-tint: var(--fm-error-tint);
+  --color-fm-error-line: var(--fm-error-tint-line);
+  --color-fm-error-text: var(--fm-error-text);
+  --color-fm-ok: var(--fm-ok);
+  --color-fm-line: var(--fm-line);
+  --color-fm-line-strong: var(--fm-line-strong);
+  --color-fm-shell: var(--fm-shell);
+  --color-fm-panel: var(--fm-panel);
+  --color-fm-card: var(--fm-card);
+  --color-fm-raised: var(--fm-raised);
+  --color-fm-scrim: var(--fm-scrim);
+  --color-fm-text: var(--fm-text);
+  --color-fm-text-dim: var(--fm-text-dim);
+  --color-fm-text-muted: var(--fm-text-muted);
+  --color-fm-text-faint: var(--fm-text-faint);
+  --color-fm-diff-added: var(--fm-diff-added);
+  --color-fm-diff-added-text: var(--fm-diff-added-text);
+  --color-fm-diff-removed: var(--fm-diff-removed);
+  --color-fm-diff-removed-text: var(--fm-diff-removed-text);
+
+  --font-fm-sans: var(--fm-font-sans);
+  --font-fm-mono: var(--fm-font-mono);
+
+  --text-fm-title: var(--fm-size-title);
+  --text-fm-heading: var(--fm-size-heading);
+  --text-fm-body: var(--fm-size-body);
+  --text-fm-body--line-height: var(--fm-leading-body);
+  --text-fm-label: var(--fm-size-label);
+  --text-fm-note: var(--fm-size-note);
+  --text-fm-note--line-height: var(--fm-leading-note);
+  --text-fm-caption: var(--fm-size-caption);
+  --text-fm-micro: var(--fm-size-micro);
+
+  --radius-fm-badge: var(--fm-radius-badge);
+  --radius-fm-control: var(--fm-radius-control);
+  --radius-fm-card: var(--fm-radius-card);
+  --radius-fm-panel: var(--fm-radius-panel);
+  --radius-fm-sheet: var(--fm-radius-sheet);
+}

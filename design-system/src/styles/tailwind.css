@@ -1,0 +1,38 @@
+/*
+ * The Tailwind entry for anything embedded in someone else's DOM — today, the
+ * Obsidian plugin. Import this, add your own @source lines, and you are done:
+ *
+ *   @import "@fathomark/design-system/tailwind.css";
+ *   @source "../**\/*.tsx";
+ *
+ * Two deliberate differences from global.css:
+ *
+ * 1. No Preflight. Obsidian injects a plugin's styles.css globally, so Tailwind's
+ *    reset would restyle Obsidian's own chrome, not just the panel. The three
+ *    lines below are the documented way to opt out: they are what
+ *    `@import "tailwindcss"` expands to, minus preflight.css.
+ *
+ * 2. source(none). Tailwind's automatic content detection walks the repository
+ *    from the stylesheet outwards, which here means the Python training
+ *    workspace, storybook-static, and every comment in the codebase. Scanning
+ *    prose generates rules for words like `table` and `outline` and ships them
+ *    to every Obsidian user. The @source lines below say exactly what to read.
+ *
+ * 3. prefix(tw). Utilities land in the global stylesheet, where a bare `.flex`
+ *    would collide with Obsidian and with every other plugin. Prefixed, they
+ *    read `tw:flex`, and the `--fm-*` design tokens keep their own namespace —
+ *    which is also why the prefix is not `fm`: Tailwind's default theme already
+ *    defines --font-sans, and prefix(fm) would emit --fm-font-sans on top of the
+ *    one fathomark.css declares.
+ */
+
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme) prefix(tw);
+@import "tailwindcss/utilities.css" layer(utilities) source(none) prefix(tw);
+
+@import "tw-animate-css";
+@import "./tokens.css";
+
+/* This package's own class usage. Consumers add @source for their own files. */
+@source "../components";
+@source "../lib";
