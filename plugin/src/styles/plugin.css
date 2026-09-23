@@ -1,0 +1,68 @@
+/*
+ * Compiled to the repository root as styles.css, which Obsidian injects into
+ * its own document globally. Everything in this file must therefore be either
+ * a prefixed `tw:` utility or a rule scoped under `.fathomark-root`.
+ *
+ * The one thing that must never appear here is a selector like `*`, `html`,
+ * `body`, or `:root`. Obsidian's chrome is on the other side of it.
+ */
+
+@import "@fathomark/design-system/tailwind.css";
+
+/* Our own class usage, on top of the design system's. */
+@source "../";
+
+/*
+ * The panel root. copilot-view.tsx puts all three classes on the container:
+ *
+ *   <div class="fathomark-root dark theme-fathomark">
+ *
+ * `dark` makes the components' `dark:` utilities apply, `theme-fathomark`
+ * supplies the palette, and `fathomark-root` is the scope for the rules below.
+ */
+.fathomark-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--fm-shell);
+  color: var(--fm-text);
+
+  /*
+   * The design tokens name "Public Sans" and "IBM Plex Mono", which the plugin
+   * cannot ship: loading fonts over the network is off-limits, and inlining
+   * them as base64 would multiply the size of this file. Obsidian's own
+   * interface fonts stand in, so the two voices from Foundations/Typography —
+   * prose for what a person or the model says, mono for machine facts — survive
+   * even though the exact faces do not.
+   */
+  --fm-font-sans: var(--font-interface), ui-sans-serif, system-ui, sans-serif;
+  --fm-font-mono: var(--font-monospace), ui-monospace, SFMono-Regular, monospace;
+
+  font-family: var(--fm-font-sans);
+  font-size: var(--fm-size-body);
+  line-height: var(--fm-leading-body);
+}
+
+/* Preflight is off, so border-width has no reset to inherit from. The design
+   system's components all say `border` and expect a colour to already be set. */
+.fathomark-root *,
+.fathomark-root *::before,
+.fathomark-root *::after {
+  border-color: var(--fm-line);
+  box-sizing: border-box;
+}
+
+/* Obsidian gives a view leaf padding meant for note content. The panel draws
+   its own gutters — see Copilot/Anatomy. */
+.workspace-leaf-content[data-type="fathomark-copilot"] .view-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Obsidian's status bar is position: fixed at the bottom-right corner and
+   floats over whatever leaf is there. Its default view padding reserves room
+   for it; zeroing that above gives the room back, so reserve it again here —
+   inside the root, so the strip keeps the panel's background. */
+.workspace-leaf-content[data-type="fathomark-copilot"] .fathomark-root {
+  padding-bottom: max(var(--safe-area-inset-bottom, 0px), var(--size-4-8));
+}
