@@ -1,0 +1,58 @@
+import { Meta } from "@storybook/addon-docs/blocks"
+
+import { fonts, leading, typeScale } from "#lib/tokens"
+
+import { Frame, Rule, TokenTable } from "../_blocks"
+
+<Meta title="Fathomark/Foundations/Typography" />
+
+# 타이포그래피
+
+## 두 개의 목소리
+
+<TokenTable tokens={fonts} />
+
+산문은 사람이 쓴 것과 모델이 말한 것을 위한 것입니다. 모노는 하네스가 측정한 것을 위한
+것입니다 — 툴 이름, 토큰 수, 파일 경로, 줄 범위, 런 id, 소요 시간. CLI와 같은 관습이고,
+독자가 주장과 측정값을 구분하는 가장 빠른 방법입니다.
+
+<Frame>
+  <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ fontSize: "var(--fm-size-body)", lineHeight: "var(--fm-leading-body)", color: "var(--fm-text)" }}>
+      Your note treats the budget as one ceiling. Your own harness notes split it into
+      instructions, evidence, history, tool schemas and an output reserve.
+    </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ fontFamily: "var(--fm-font-mono)", fontSize: "var(--fm-size-caption)", color: "var(--fm-text-dim)" }}>
+        read_note
+      </span>
+      <span style={{ fontFamily: "var(--fm-font-mono)", fontSize: "var(--fm-size-caption)", color: "var(--fm-text-faint)", flexGrow: 1 }}>
+        Agent/Harness notes.md
+      </span>
+      <span style={{ fontFamily: "var(--fm-font-mono)", fontSize: "var(--fm-size-micro)", color: "var(--fm-text-muted)" }}>
+        1.8k tok
+      </span>
+    </div>
+  </div>
+</Frame>
+
+## 스케일
+
+<TokenTable tokens={typeScale} />
+
+15px에서 10.5px까지 일곱 단계입니다. 범위가 좁은 이유는 패널이 좁기 때문입니다. 400px에서
+13px 산문 옆에 20px 제목이 놓이면 위계가 아니라 실수로 보입니다. 여기서 위계는 크기보다
+굵기와 색이 만듭니다.
+
+<Rule kind="dont" title="인라인으로 쓴 크기">
+  컴포넌트에 쓰인 `font-size: 13px`는 아무도 이름 붙이지 않은 `--fm-size-body`입니다. 이
+  표에 없는 값이 필요하다면 먼저 여기에 추가하고 나서 쓰세요 — 그 순서가 화면 여섯 개를
+  하나의 제품으로 보이게 만듭니다.
+</Rule>
+
+## 행간
+
+<TokenTable tokens={leading} />
+
+본문은 1.62로, 데스크톱 단에 필요한 것보다 넉넉합니다. 400px의 한 줄은 약 55자인데, 그
+폭에서 행간이 좁으면 문단이 하나의 덩어리로 읽힙니다.
