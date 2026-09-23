@@ -1,0 +1,69 @@
+/*
+ * The theme contract, with no Tailwind entry of its own.
+ *
+ * Both consumers import this and bring their own Tailwind import, because they
+ * need different ones:
+ *
+ *   global.css   Storybook — full Tailwind, Preflight included. It owns a page.
+ *   tailwind.css the Obsidian plugin — Preflight excluded. It is a guest inside
+ *                Obsidian's DOM, and a reset here would repaint the whole app.
+ *
+ * Nothing in this file selects `:root`, `*`, `html` or `body`. Everything hangs
+ * off `.theme-fathomark`, so importing it cannot change anything outside the
+ * panel. Keep it that way — the light/dark demo palettes live in global.css
+ * precisely because they do select `:root`.
+ */
+
+@import "./fathomark.css";
+
+/* Components use `dark:` utilities. The plugin root carries both classes:
+   <div class="dark theme-fathomark">. See the note in fathomark.css. */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * The shadcn variable names, mapped onto whatever the current theme defines.
+ * `inline` matters: it inlines `var(--background)` into the utility instead of
+ * emitting a `--tw-color-background` indirection, so the value still resolves
+ * against `.theme-fathomark` at render time.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}

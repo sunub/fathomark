@@ -1,0 +1,66 @@
+import { Meta } from "@storybook/addon-docs/blocks"
+
+import { diff, evidenceRoles, lines, surfaces, textColors } from "#lib/tokens"
+
+import { RoleCard, Rule, TokenTable } from "../_blocks"
+
+<Meta title="Fathomark/Foundations/Colour" />
+
+# 색
+
+모든 값은 LLaMA CLI의 Tokyo Night 테마
+(`obsidian-mcp-server/src/cli/theme/builtin/tokyonight-dark.ts`)에서 왔습니다. 플러그인과
+터미널이 하나의 제품으로 읽히게 하기 위해서입니다. `global.css`가 쓰는 oklch로 변환하지
+않고 hex 그대로 둔 이유는, 변환된 토큰은 더 이상 원본으로 grep되지 않기 때문입니다.
+
+## 색은 의미를 나릅니다
+
+이 UI에서 색은 둘 중 하나를 답합니다. **이건 어디서 왔는가?** 또는
+**지금 런이 무엇을 하고 있는가?** 장식으로 칠하는 색은 없고, 같은 의미를 두 색이
+나눠 갖지도 않습니다.
+
+<div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+  {evidenceRoles.map((role) => (
+    <RoleCard key={role.id} role={role} />
+  ))}
+</div>
+
+소리 내어 말해둘 만한 결과가 둘 있습니다.
+
+- 네트워크 읽기는 전부 눈에 띄게 파랗습니다. 사용자는 한 글자도 읽지 않고 이 런이
+  기기 밖으로 나갔는지 알 수 있습니다.
+- 브랜드 보라는 에이전트이지 증거가 아닙니다. 전송, 적용, 스트리밍 캐럿, 메모리
+  아이콘에 나타나고 — 출처를 가리키는 자리에는 나타나지 않습니다.
+
+<Rule kind="dont" title="브랜드 채움 위의 흰 글자">
+  `#9b7ff6` 위의 흰색은 약 2.8:1로 통과하지 못합니다. `--fm-brand` 채움 위의 글자는
+  거의 검은색인 `--fm-brand-ink`이고, pending과 error 채움도 마찬가지입니다. 틴트를 가진
+  역할은 각각 `-text` 토큰도 함께 갖습니다 — 기본 색이 너무 튀어 산문으로 읽히지 않는
+  경우를 위해서입니다.
+</Rule>
+
+## 표면
+
+<TokenTable tokens={surfaces} swatch />
+
+## 선
+
+<TokenTable tokens={lines} swatch />
+
+선 토큰은 둘뿐이고, 둘 다 구분선이 아닙니다. `--fm-line`은 카드 테두리를 그리고,
+`--fm-line-strong`은 컴포저와 포커스 외곽선, 점선 추가 버튼을 그립니다.
+
+## 글자
+
+<TokenTable tokens={textColors} swatch />
+
+`--fm-text-muted`는 CLI의 `#565f89`보다 의도적으로 밝습니다. 원래 값은 터미널 배경에서는
+괜찮지만 `--fm-shell` 위에서는 약 3.4:1이라 캡션 글자로 쓸 수 없었습니다. 원본은
+`--fm-text-faint`로 남겨 장식과 비활성 상태에만 씁니다.
+
+## Diff
+
+<TokenTable tokens={diff} swatch />
+
+삽입 미리보기 한 화면에서만 쓰고 다른 어디에서도 쓰지 않습니다. diff 색이 대화 영역에
+나타난다면, 아직 검토되지 않은 무언가가 변경으로 제시되고 있다는 뜻입니다.
