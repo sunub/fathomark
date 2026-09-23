@@ -1,0 +1,94 @@
+/*
+ * Fixes for the docs pages, not for the library.
+ *
+ * `global.css` pulls in Tailwind's preflight, and the preview loads it for every
+ * story — including the docs iframe. Preflight is a reset written for app markup,
+ * so it also flattens the prose that MDX generates. These rules hand that prose
+ * back what the reset took.
+ */
+
+/* Preflight sets `list-style: none` on every ul/ol, which silently removed the
+   bullets and numbers from every list in the .mdx pages. */
+.sbdocs-content :is(ul, ol) {
+  padding-inline-start: 1.5em;
+  list-style-position: outside;
+}
+
+.sbdocs-content ul {
+  list-style-type: disc;
+}
+
+.sbdocs-content ol {
+  list-style-type: decimal;
+}
+
+.sbdocs-content :is(ul, ol) :is(ul, ol) {
+  margin-block: 4px;
+}
+
+.sbdocs-content ul ul {
+  list-style-type: circle;
+}
+
+/*
+ * Storybook's docs stylesheet colours every `p`, `li` and `code` for a light
+ * background. MDX wraps the children passed to a component in exactly those
+ * elements, so prose handed to <Rule> arrived as near-black text on a dark tint —
+ * present, but invisible. `.fm-doc-prose` hands the colour back to the block that
+ * owns the surface.
+ */
+.fm-doc-prose :is(p, ul, ol, li, blockquote) {
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.fm-doc-prose :is(p, li) + :is(p, ul, ol) {
+  margin-top: 6px;
+}
+
+.fm-doc-prose :is(ul, ol) {
+  padding-inline-start: 1.1em;
+}
+
+.fm-doc-prose code {
+  padding: 1px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--fm-text-muted) 18%, transparent);
+  color: inherit;
+  font-family: var(--fm-font-mono);
+  font-size: 0.92em;
+}
+
+.fm-doc-prose :is(strong, b) {
+  color: var(--fm-text);
+  font-weight: 600;
+}
+
+.fm-doc-prose a {
+  color: var(--fm-external);
+}
+
+/*
+ * Storybook zebra-stripes every second row of a table in a docs page with a
+ * near-white fill (`rgb(246,249,252)`), which is right for a markdown table on the
+ * light docs background and wrong for the dark token tables this project draws:
+ * every other row lost its text into a white band.
+ *
+ * Those tables opt out with `.fm-doc-table`. `!important` because the stripe is
+ * injected at runtime by emotion, so it always wins on source order.
+ */
+.fm-doc-table tr,
+.fm-doc-table :is(th, td) {
+  background: transparent !important;
+  border: 0;
+}
+
+.fm-doc-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  box-shadow: none;
+}
