@@ -1,4 +1,4 @@
-# Fathomark Copilot — UI 사양
+# Fathomark Chat — UI 사양
 
 Obsidian 오른쪽 패널에 사는 사이드바 에이전트. 이 문서는 디자인 캔버스를 글로 옮긴
 것입니다. 캔버스가 그림이고 이 문서가 계약입니다. 둘이 어긋나면 조용히 한쪽을 고르지 말고

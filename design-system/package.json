@@ -48,7 +48,7 @@
   },
   "private": true,
   "version": "0.0.0",
-  "description": "Fathomark Copilot design system. Consumed as source: the plugin bundler compiles these .tsx files directly.",
+  "description": "Fathomark Chat design system. Consumed as source: the plugin bundler compiles these .tsx files directly.",
   "exports": {
     ".": "./src/index.ts",
     "./tokens.css": "./src/styles/tokens.css",
