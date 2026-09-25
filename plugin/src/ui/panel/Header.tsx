@@ -1,7 +1,7 @@
 /*
  * The header: 44px, no rule beneath it.
  *
- * Copilot/Anatomy is strict about what may sit here — the run badge and its
+ * Chat/Anatomy is strict about what may sit here — the run badge and its
  * mono metadata on the left, history and settings on the right, in that order,
  * and nothing else. No product name and no mark: Obsidian already names this
  * view in its own tab.

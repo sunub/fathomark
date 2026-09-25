@@ -26,7 +26,7 @@ const preview: Preview = {
       storySort: {
         order: [
           "Fathomark",
-          ["Introduction", "Foundations", ["Colour", "Typography", "Metrics"], "Copilot"],
+          ["Introduction", "Foundations", ["Colour", "Typography", "Metrics"], "Chat"],
           "Components",
           "Example",
         ],

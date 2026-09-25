@@ -1,7 +1,7 @@
 /*
  * The panel.
  *
- * Copilot/Anatomy: every main screen has the same three parts in the same
+ * Chat/Anatomy: every main screen has the same three parts in the same
  * order — header, body, bottom — and the bottom is one component with four
  * slots: the state row, the budget bar, the composer, and the model line.
  */

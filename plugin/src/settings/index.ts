@@ -2,7 +2,7 @@
  * Persisted settings, through Obsidian's loadData/saveData.
  *
  * Nothing framework-shaped is stored here. TECH_STACK.md: the plugin "does not
- * expose LangChain objects directly to the Copilot UI, Vault adapters, or
+ * expose LangChain objects directly to the Chat UI, Vault adapters, or
  * persisted settings" — a settings file is forever, and a serialised SDK object
  * in one is a migration nobody wants.
  */

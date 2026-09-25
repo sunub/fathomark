@@ -11,7 +11,7 @@ Obsidian 사이드바 에이전트 **Fathomark**, 그리고 같은 팔레트를 
 | `src/styles/global.css` | shadcn 토큰 레이어, 라이트와 다크 |
 | `src/styles/fathomark.css` | Fathomark 테마: Tokyo Night 표면과 의미를 나르는 토큰들 |
 | `src/lib/tokens.ts` | 같은 토큰을 데이터로. 문서와 도구가 순회할 수 있게 |
-| `docs/copilot-ui.md` | Copilot UI 사양 — 크롬 규칙, 셸 구조, 런 상태, 컴포넌트 매핑 |
+| `docs/chat-ui.md` | Chat UI 사양 — 크롬 규칙, 셸 구조, 런 상태, 컴포넌트 매핑 |
 | `obsidian-mcp-server/` | CLI, 그리고 팔레트의 원본 (`src/cli/theme/`) |
 
 ## Fathomark 테마 쓰기
@@ -30,9 +30,9 @@ import "#styles/global.css" // fathomark.css는 여기서 import됩니다
 `--fm-*` 토큰이 계약입니다. 컴포넌트는 그것을 참조하고, Tokyo Night의 원시 hex를 직접
 쓰지 않습니다 — `--fm-*` 이름이 없는 색은 아직 합의된 의미가 없다는 뜻입니다.
 
-## Copilot UI를 건드리기 전에
+## Chat UI를 건드리기 전에
 
-`docs/copilot-ui.md`를 먼저 읽으세요. 실수로 깨기 쉬운 규칙이 셋 있습니다.
+`docs/chat-ui.md`를 먼저 읽으세요. 실수로 깨기 쉬운 규칙이 셋 있습니다.
 
 - 패널 안에 구분선을 두지 않고, 크롬에 제품명이나 마크를 넣지 않습니다
 - 컴포저는 항상 존재합니다 — 스트리밍 중에는 Stop이 전송 버튼 자리를 대신합니다
@@ -44,7 +44,7 @@ import "#styles/global.css" // fathomark.css는 여기서 import됩니다
 pnpm storybook
 ```
 
-`Fathomark` 섹션이 Foundations(색·타이포그래피·기하)와 Copilot(패널 구조, 컴포넌트
+`Fathomark` 섹션이 Foundations(색·타이포그래피·기하)와 Chat(패널 구조, 컴포넌트
 매핑)을, `Components` 섹션이 각 컴포넌트를 코필럿에서 쓰이는 형태로 보여줍니다.
 툴바의 **Theme**과 **Width** 컨트롤로 팔레트와 폭을 바꿔볼 수 있습니다.
 

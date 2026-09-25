@@ -1,5 +1,5 @@
 /*
- * The budget bar. Copilot/Anatomy fixes its shape: mono `used / total`, a bar
+ * The budget bar. Chat/Anatomy fixes its shape: mono `used / total`, a bar
  * split by what is filling it, and the reserve label on the right.
  *
  * It sits directly above the composer because "you are over budget" and "so

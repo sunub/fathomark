@@ -7,7 +7,7 @@ import { VaultAdapter } from "./obsidian/vault-adapter";
 import { FakeModelProvider } from "./providers/fake";
 import { DEFAULT_SETTINGS, type FathomarkSettings, parseSettings } from "./settings";
 import { ToolRegistry } from "./tools/registry";
-import { COPILOT_VIEW_TYPE, CopilotView } from "./view/copilot-view";
+import { CHAT_VIEW_TYPE, ChatView } from "./view/chat-view";
 import { FathomarkSettingTab } from "./view/settings-tab";
 
 export default class FathomarkPlugin extends Plugin {
@@ -38,24 +38,24 @@ export default class FathomarkPlugin extends Plugin {
     });
 
     this.registerView(
-      COPILOT_VIEW_TYPE,
-      (leaf: WorkspaceLeaf) => new CopilotView(leaf, this.harness, editor, this.settings.model),
+      CHAT_VIEW_TYPE,
+      (leaf: WorkspaceLeaf) => new ChatView(leaf, this.harness, editor, this.settings.model),
     );
 
-    this.addRibbonIcon("sparkles", "Open Fathomark", () => {
+    this.addRibbonIcon("sparkles", "Open Fathomark chat", () => {
       void this.activateView();
     });
 
     this.addCommand({
-      id: "open-copilot",
-      name: "Open Fathomark",
+      id: "open-chat",
+      name: "Open chat",
       // No default hotkey: the guidelines warn that defaults collide.
       callback: () => void this.activateView(),
     });
 
     this.addCommand({
-      id: "stop-run",
-      name: "Stop the current run",
+      id: "stop-generating",
+      name: "Stop generating",
       callback: () => this.harness.cancel(),
     });
 
@@ -84,7 +84,7 @@ export default class FathomarkPlugin extends Plugin {
     const { workspace } = this.app;
 
     // Reuse an existing leaf rather than stacking duplicates.
-    const existing = workspace.getLeavesOfType(COPILOT_VIEW_TYPE)[0];
+    const existing = workspace.getLeavesOfType(CHAT_VIEW_TYPE)[0];
     if (existing) {
       await workspace.revealLeaf(existing);
       return;
@@ -92,7 +92,7 @@ export default class FathomarkPlugin extends Plugin {
 
     const leaf = workspace.getRightLeaf(false);
     if (!leaf) return;
-    await leaf.setViewState({ type: COPILOT_VIEW_TYPE, active: true });
+    await leaf.setViewState({ type: CHAT_VIEW_TYPE, active: true });
     await workspace.revealLeaf(leaf);
   }
 }

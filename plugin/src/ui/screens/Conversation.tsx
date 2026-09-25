@@ -1,7 +1,7 @@
 /*
  * The transcript.
  *
- * Two shapes from Copilot/Components are load-bearing here: the answer is a
+ * Two shapes from Chat/Components are load-bearing here: the answer is a
  * `ghost` bubble rather than a tinted one, because prose in a bubble at 400px
  * wrecks the characters-per-line; and tool activity is a Marker row, kept out
  * of the prose entirely.

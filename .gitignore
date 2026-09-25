@@ -1,0 +1,21 @@
+# --- Obsidian plugin build artifacts -----------------------------------------
+# These are published as GitHub release assets, not committed. manifest.json and
+# versions.json ARE committed: the community directory reads them from the HEAD
+# of the default branch.
+/main.js
+/styles.css
+/main.js.map
+
+# --- dependencies -------------------------------------------------------------
+node_modules/
+.pnpm-store/
+
+# --- tooling ------------------------------------------------------------------
+*.log
+.DS_Store
+coverage/
+storybook-static/
+.vitest-cache/
+
+
+.omx/

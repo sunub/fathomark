@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The Fathomark Obsidian plugin: Copilot UI, Agent Harness, context pipeline, tools, and Obsidian adapters. Everything here ships as one main.js.",
+  "description": "The Fathomark Obsidian plugin: Chat UI, Agent Harness, context pipeline, tools, and Obsidian adapters. Everything here ships as one main.js.",
   "scripts": {
     "dev": "node build.mjs",
     "build": "node build.mjs production",

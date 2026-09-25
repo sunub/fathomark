@@ -1,0 +1,149 @@
+import { Meta } from "@storybook/addon-docs/blocks"
+
+import { evidenceRoles, runStates } from "#lib/tokens"
+
+import { Frame, Rule, docCell, docHead, docMono } from "../_blocks"
+
+<Meta title="Fathomark/Chat/Anatomy" />
+
+# 패널 구조
+
+모든 **주** 화면은 같은 세 부분을 같은 순서로 갖습니다. 하위 화면 — 삽입 미리보기와
+메모리 시트 — 는 의도적으로 그렇지 않습니다.
+
+<Frame>
+  <div style={{ fontFamily: "var(--fm-font-sans)" }}>
+    <div style={{ height: 44, padding: "0 10px 0 8px", display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fm-size-micro)", color: "var(--fm-text-muted)" }}>
+      <span style={{ color: "var(--fm-brand)" }}>◈</span>
+      <span style={{ border: "1px solid var(--fm-brand-tint-line)", background: "var(--fm-brand-tint)", color: "var(--fm-brand-text)", borderRadius: "var(--fm-radius-badge)", padding: "2px 7px", fontWeight: 600 }}>
+        STREAMING
+      </span>
+      <span style={{ flexGrow: 1 }} />
+      <span>history · settings</span>
+    </div>
+    <div style={{ height: 150, margin: "0 12px", border: "1px dashed var(--fm-line-strong)", borderRadius: "var(--fm-radius-panel)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fm-size-caption)", color: "var(--fm-text-muted)" }}>
+      본문 — 빈 상태, 또는 대화
+    </div>
+    <div style={{ padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 8, fontSize: "var(--fm-size-micro)", color: "var(--fm-text-muted)" }}>
+      <div style={{ padding: "6px 8px", border: "1px dashed var(--fm-line)", borderRadius: 8 }}>1 · 상태별 행</div>
+      <div style={{ padding: "6px 8px", border: "1px dashed var(--fm-line)", borderRadius: 8 }}>2 · 예산 바</div>
+      <div style={{ padding: "6px 8px", border: "1px solid var(--fm-line-strong)", background: "var(--fm-panel)", borderRadius: "var(--fm-radius-panel)", color: "var(--fm-text-dim)" }}>3 · 컴포저 — 항상 존재</div>
+      <div style={{ padding: "6px 8px", border: "1px dashed var(--fm-line)", borderRadius: 8 }}>4 · 모델 상태 줄</div>
+    </div>
+  </div>
+</Frame>
+
+## 헤더
+
+`--fm-header-height`(44px) 고정, 아래 선 없음.
+
+- **왼쪽** — 메모리 아이콘, 런이 있을 때 런 상태 배지, 그리고 런의 모노
+  메타데이터(`4.2s · 6.1k tok`, `run 4a1f`).
+- **오른쪽** — 히스토리와 설정. 언제나 둘 다, 언제나 그 순서로.
+
+헤더에는 그 외의 것이 들어가지 않습니다. 제품명도 마크도 없습니다. Obsidian이 이미 자기
+탭에서 이 뷰의 이름을 말하고 있습니다.
+
+## 하단
+
+하나의 컴포넌트, 네 개의 슬롯, 이 순서로: 상태별 행, 예산 바, 컴포저, 모델 상태 줄.
+
+<Rule kind="dont" title="컴포저를 런 컨트롤로 대체하는 것">
+  이 패널을 다시 만든 이유가 된 실수입니다. 스트리밍 화면은 *컴포저가 있던 자리에* Stop
+  버튼을 놓았고 답변 화면은 액션 행을 놓았습니다 — 그 결과 같은 대화가 서로 무관한 세
+  화면처럼 보였습니다. 컴포저는 남습니다. Stop은 그 안에서 전송 버튼 자리를 대신합니다.
+</Rule>
+
+### 예산
+
+같은 숫자는 언제나 같은 모양으로 그려집니다. 모노 `used / total`, 무엇이 채우고 있는지에
+따라 색이 나뉜 막대, 그리고 오른쪽의 리저브 라벨.
+
+<Frame>
+  <div style={{ padding: 12, display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--fm-font-mono)", fontSize: "var(--fm-size-micro)", color: "var(--fm-text-muted)" }}>
+    <span>6.1k / 8k</span>
+    <span style={{ flexGrow: 1, height: "var(--fm-meter)", borderRadius: 2, background: "var(--fm-line)", overflow: "hidden", display: "flex" }}>
+      <span style={{ width: "22%", background: "var(--fm-brand)" }} />
+      <span style={{ width: "34%", background: "var(--fm-vault)" }} />
+      <span style={{ width: "20%", background: "var(--fm-external)" }} />
+      <span style={{ width: "10%", background: "var(--fm-line-strong)" }} />
+    </span>
+    <span>reserve 1k</span>
+  </div>
+</Frame>
+
+막대의 구간은 증거 색이 평소 하던 일을 그대로 합니다. 브랜드는 지시문과 메모리, vault는
+노트와 그 증거, external은 가져온 페이지, 회색은 출력 리저브입니다. 컴포저 바로 위에
+있는 이유는 "예산을 넘겼다"와 "그럼 무엇을 뺄까"가 한 시선 안에 있어야 하기 때문입니다.
+
+## 런 상태
+
+헤더 배지, 컴포저, 모델 상태 줄이 하나의 값에서 읽습니다. 종료 상태는 컴포저를 절대
+비활성화하지 않습니다.
+
+<div className="theme-fathomark" style={{ background: "var(--fm-shell)", borderRadius: 12, padding: 4 }}>
+  <table className="fm-doc-table" style={{ color: "var(--fm-text)" }}>
+    <thead>
+      <tr>
+        <th scope="col" style={docHead}>상태</th>
+        <th scope="col" style={docHead}>배지</th>
+        <th scope="col" style={docHead}>예산 바 위의 행</th>
+        <th scope="col" style={docHead}>전송 슬롯</th>
+      </tr>
+    </thead>
+    <tbody>
+      {runStates.map((s) => {
+        const role = evidenceRoles.find((r) => r.id === s.role)
+        return (
+          <tr key={s.id}>
+            <td style={{ ...docCell, ...docMono }}>{s.id}</td>
+            <td style={docCell}>
+              {s.badge ? (
+                <span
+                  style={{
+                    fontSize: "var(--fm-size-micro)",
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    padding: "2px 7px",
+                    borderRadius: "var(--fm-radius-badge)",
+                    color: `var(${role?.text ?? role?.base ?? "--fm-text-muted"})`,
+                    background: `var(${role?.tint ?? "--fm-card"})`,
+                    border: `1px solid var(${role?.tintLine ?? "--fm-line"})`,
+                  }}
+                >
+                  {s.badge}
+                </span>
+              ) : (
+                <span style={{ color: "var(--fm-text-faint)" }}>없음</span>
+              )}
+            </td>
+            <td style={{ ...docCell, fontSize: "var(--fm-size-note)", color: "var(--fm-text-dim)" }}>{s.aboveBudget}</td>
+            <td style={{ ...docCell, fontSize: "var(--fm-size-note)", color: "var(--fm-text-dim)" }}>{s.sendSlot}</td>
+          </tr>
+        )
+      })}
+    </tbody>
+  </table>
+</div>
+
+## 하위 화면
+
+삽입 미리보기와 메모리 시트는 헤더의 왼쪽 그룹을 뒤로가기 버튼과 화면 이름으로 바꾸고,
+컴포저를 갖지 않습니다.
+
+<Rule title="그 차이가 바로 요점입니다">
+  하위 화면은 "당신은 어떤 작업 안에 있고, 여기가 나가는 길"이라고 말합니다. 주 화면과
+  똑같이 맞추면 그 신호가 지워집니다. 일관되어야 하는 것은 패턴입니다 — 뒤로가기, 이름,
+  상태 배지, 그리고 하단의 단일 주요 동작.
+</Rule>
+
+## UI가 강제하는 두 가지 제품 규칙
+
+**읽기는 자유롭게, 쓰기는 승인 후에.** 주 화면들은 읽기만 합니다. `Insert into note`는
+적용이 아니라 이동입니다. 미리보기를 열고, 거기서 사용자가 실제 줄 diff를 보고 Apply를
+누릅니다. 그래서 채워진 브랜드 버튼은 제품 전체에서 정확히 두 곳에만 있습니다 — 전송,
+그리고 Apply to note.
+
+**확신보다 증거.** 주장에는 인용 칩이 붙거나, pending 색의 "출처 없음" 표시가 붙습니다.
+vault 증거와 외부 증거가 어긋나면 양쪽을 출처와 함께 보여줍니다. UI가 조용히 하나를
+고르는 일은 없습니다.

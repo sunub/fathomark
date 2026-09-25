@@ -1,5 +1,5 @@
 /*
- * Fathomark Copilot theme
+ * Fathomark Chat theme
  *
  * The palette is lifted verbatim from the LLaMA CLI so the Obsidian plugin and
  * the terminal read as one product:
@@ -19,7 +19,7 @@
  * yet, and giving it one is a design decision. The same goes for the sizes below:
  * a literal `13px` or `10px` in a component is a token that has not been named.
  *
- * Documented in Storybook under Foundations, and in docs/copilot-ui.md.
+ * Documented in Storybook under Foundations, and in docs/chat-ui.md.
  */
 
 .theme-fathomark {
@@ -44,7 +44,7 @@
 
   /* ---- meaning -------------------------------------------------------- */
   /* Colour is never decoration here. Each of these answers "where did this
-     come from?" or "what is the run doing?" — see docs/copilot-ui.md. */
+     come from?" or "what is the run doing?" — see docs/chat-ui.md. */
   --fm-brand: #9b7ff6; /* the agent itself: send, apply, the streaming caret */
   --fm-brand-ink: #14151f; /* text on a --fm-brand fill; white fails 4.5:1 */
   --fm-brand-tint: #221f3a;

@@ -2,7 +2,7 @@
 
 **Grounded intelligence for your notes.**
 
-Fathomark is a desktop-only, local-first AI workspace for Obsidian. Its first experience, **Vault Copilot**, brings the visible, tool-using sidebar workflow familiar from modern editor agents into Obsidian: it uses the current note and selected evidence to produce source-grounded answers and proposes note changes for explicit user approval.
+Fathomark is a desktop-only, local-first AI workspace for Obsidian. Its first experience, **Vault Chat**, brings the visible, tool-using sidebar workflow familiar from modern editor agents into Obsidian: it uses the current note and selected evidence to produce source-grounded answers and proposes note changes for explicit user approval.
 
 ## Status
 
@@ -30,7 +30,7 @@ There is no telemetry, no account, no external model provider, and no general we
 
 ## MVP
 
-Vault Copilot lets a user:
+Vault Chat lets a user:
 
 1. Ask a question from the current note or selection.
 2. Search and read only the needed Vault evidence and, when explicitly enabled, bounded Wikipedia evidence.

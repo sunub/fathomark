@@ -1,5 +1,5 @@
 /*
- * RunEvent — the only thing the Copilot UI is allowed to read.
+ * RunEvent — the only thing the Chat UI is allowed to read.
  *
  * This is the boundary TECH_STACK.md draws around LangChain. Whatever the
  * agent loop is built from, it is translated into these events before anything
@@ -46,7 +46,7 @@ export interface EvidenceConflictClaim {
 
 /**
  * What the budget bar draws. The segments are the evidence colours doing their
- * usual job — see Copilot/Anatomy.
+ * usual job — see Chat/Anatomy.
  */
 export interface BudgetUsage {
   readonly instructions: number

@@ -2,7 +2,7 @@
  * What the panel knows, and the only two things it can ask for.
  *
  * The UI never calls the harness. It subscribes to RunEvent and invokes
- * `commands`, which copilot-view.tsx wires to the harness. That indirection is
+ * `commands`, which chat-view.tsx wires to the harness. That indirection is
  * the reason a component can be rendered in Storybook, or in a test, with no
  * Obsidian and no model anywhere.
  */

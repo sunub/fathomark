@@ -1,0 +1,57 @@
+# Publishes a draft release whenever a version tag is pushed.
+#
+#   npm version patch      # writes package.json, manifest.json, versions.json
+#   git push && git push --tags
+#
+# The tag name must equal manifest.json's version exactly. The three assets are
+# attached flat — Obsidian downloads them by name, not from a zip.
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+
+      - name: Fail if the tag disagrees with manifest.json
+        run: |
+          manifest_version=$(node -p "require('./manifest.json').version")
+          if [ "$manifest_version" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag ${GITHUB_REF_NAME} != manifest.json ${manifest_version}" >&2
+            exit 1
+          fi
+
+      # Recommended by Obsidian for directory submission: proves the assets were
+      # built from this commit by this workflow.
+      - uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: "main.js, manifest.json, styles.css"
+
+      - name: Create draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --draft \
+            main.js manifest.json styles.css
