@@ -1,0 +1,18 @@
+{
+  "name": "fathomark",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "A local-first Obsidian sidebar agent that answers from your vault with visible sources.",
+  "license": "MIT",
+  "packageManager": "pnpm@12.5.1+sha512.e3f305bc784a2bc89f5ad3b6138889470fae8d2af5f36b61216ec91c2c3d64089775f9de38aac331044ea40f245cb0d5666392dfdf65824e1907ef6a2c62de5f",
+  "scripts": {
+    "dev": "pnpm --filter fathomark-plugin run dev",
+    "build": "pnpm --filter fathomark-plugin run build",
+    "typecheck": "pnpm --filter fathomark-plugin run typecheck",
+    "test": "pnpm --filter fathomark-plugin run test",
+    "boundaries": "pnpm --filter fathomark-plugin run boundaries",
+    "storybook": "pnpm --filter @fathomark/design-system run storybook",
+    "version": "node scripts/version-bump.mjs && git add manifest.json versions.json"
+  }
+}

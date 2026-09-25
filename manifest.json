@@ -1,0 +1,9 @@
+{
+  "id": "fathomark",
+  "name": "Fathomark",
+  "version": "0.0.1",
+  "minAppVersion": "1.5.0",
+  "description": "A local-first sidebar agent that answers from your vault, shows the notes it used, and proposes note changes for your approval.",
+  "author": "sunub",
+  "isDesktopOnly": true
+}
