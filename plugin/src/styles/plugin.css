@@ -13,7 +13,7 @@
 @source "../";
 
 /*
- * The panel root. copilot-view.tsx puts all three classes on the container:
+ * The panel root. chat-view.tsx puts all three classes on the container:
  *
  *   <div class="fathomark-root dark theme-fathomark">
  *
@@ -53,8 +53,8 @@
 }
 
 /* Obsidian gives a view leaf padding meant for note content. The panel draws
-   its own gutters — see Copilot/Anatomy. */
-.workspace-leaf-content[data-type="fathomark-copilot"] .view-content {
+   its own gutters — see Chat/Anatomy. */
+.workspace-leaf-content[data-type="fathomark-chat"] .view-content {
   padding: 0;
   overflow: hidden;
 }
@@ -63,6 +63,6 @@
    floats over whatever leaf is there. Its default view padding reserves room
    for it; zeroing that above gives the room back, so reserve it again here —
    inside the root, so the strip keeps the panel's background. */
-.workspace-leaf-content[data-type="fathomark-copilot"] .fathomark-root {
+.workspace-leaf-content[data-type="fathomark-chat"] .fathomark-root {
   padding-bottom: max(var(--safe-area-inset-bottom, 0px), var(--size-4-8));
 }

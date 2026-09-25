@@ -1,7 +1,7 @@
 /*
  * The composer. It is always present.
  *
- * Copilot/Anatomy records this as the mistake that caused the panel to be
+ * Chat/Anatomy records this as the mistake that caused the panel to be
  * rebuilt: the streaming screen put a Stop button where the composer had been,
  * and the answer screen put an action row there, so one conversation looked
  * like three unrelated screens. The composer stays; Stop takes over the send

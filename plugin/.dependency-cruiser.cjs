@@ -13,7 +13,7 @@ module.exports = {
     {
       name: "ui-owns-no-policy",
       comment:
-        "Copilot UI owns presentation only. It reads RunEvent and calls commands; " +
+        "Chat UI owns presentation only. It reads RunEvent and calls commands; " +
         "it does not reach into the harness, providers, tools, or Obsidian APIs. " +
         "ARCHITECTURE.md: 'It does not own model or tool policy.'",
       severity: "error",
@@ -40,7 +40,7 @@ module.exports = {
       comment:
         "LangChain is an internal foundation inside the Agent Harness, not the " +
         "product boundary. TECH_STACK.md: 'The plugin does not expose LangChain " +
-        "objects directly to the Copilot UI, Vault adapters, or persisted settings.'",
+        "objects directly to the Chat UI, Vault adapters, or persisted settings.'",
       severity: "error",
       from: { pathNot: "^src/harness" },
       to: { path: "node_modules/(langchain|@langchain)" },

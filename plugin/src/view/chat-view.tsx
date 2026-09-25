@@ -13,9 +13,9 @@ import type { AgentHarness } from "../harness/harness"
 import { EditorAdapter } from "../obsidian/editor-adapter"
 import { App } from "../ui/App"
 
-export const COPILOT_VIEW_TYPE = "fathomark-copilot"
+export const CHAT_VIEW_TYPE = "fathomark-chat"
 
-export class CopilotView extends ItemView {
+export class ChatView extends ItemView {
   private root: Root | null = null
 
   constructor(
@@ -28,7 +28,7 @@ export class CopilotView extends ItemView {
   }
 
   override getViewType(): string {
-    return COPILOT_VIEW_TYPE
+    return CHAT_VIEW_TYPE
   }
 
   override getDisplayText(): string {

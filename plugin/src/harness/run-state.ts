@@ -40,7 +40,7 @@ export function isActive(state: RunState): state is ActiveRunState {
 }
 
 /**
- * The composer is never disabled — see Copilot/Anatomy, "컴포저를 런 컨트롤로
+ * The composer is never disabled — see Chat/Anatomy, "컴포저를 런 컨트롤로
  * 대체하는 것". What changes is only what sits in the send slot.
  */
 export function sendSlot(state: RunState): "send" | "stop" {
