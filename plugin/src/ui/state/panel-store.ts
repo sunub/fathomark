@@ -53,6 +53,9 @@ export interface PanelCommands {
   retry(): Promise<{ accepted: boolean; reason?: string }>
   openSource(reference: EvidenceReference): Promise<void>
   setResearchTopic(text: string, language: "ko" | "en"): void
+  selectStyle(): Promise<void>
+  clearStyle(): Promise<void>
+  saveStyle(): Promise<void>
 }
 
 export function reduce(state: PanelState, event: RunEvent): PanelState {
