@@ -18,7 +18,7 @@ import { sendSlot } from "../../harness/run-state"
 
 export interface ComposerProps {
   readonly runState: RunState
-  readonly onAsk: (question: string) => void
+  readonly onAsk: (question: string) => Promise<{ accepted: boolean; reason?: string }>
   readonly onStop: () => void
 }
 
@@ -26,11 +26,12 @@ export function Composer({ runState, onAsk, onStop }: ComposerProps) {
   const [draft, setDraft] = useState("")
   const slot = sendSlot(runState)
 
-  function submit() {
+  async function submit() {
+    if (slot === "stop") return
     const question = draft.trim()
     if (question.length === 0) return
-    onAsk(question)
-    setDraft("")
+    const result = await onAsk(question)
+    if (result.accepted) setDraft("")
   }
 
   return (
@@ -40,9 +41,14 @@ export function Composer({ runState, onAsk, onStop }: ComposerProps) {
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
           // Enter sends, Shift+Enter makes a new line — the convention everywhere else.
-          if (event.key === "Enter" && !event.shiftKey) {
+          if (
+            event.key === "Enter" &&
+            !event.shiftKey &&
+            !event.nativeEvent.isComposing &&
+            event.keyCode !== 229
+          ) {
             event.preventDefault()
-            submit()
+            void submit()
           }
         }}
         rows={2}
@@ -55,7 +61,7 @@ export function Composer({ runState, onAsk, onStop }: ComposerProps) {
           <SquareIcon />
         </Button>
       ) : (
-        <Button size="icon-sm" onClick={submit} disabled={draft.trim().length === 0} aria-label="Send">
+        <Button size="icon-sm" onClick={() => void submit()} disabled={draft.trim().length === 0} aria-label="Send">
           <SendIcon />
         </Button>
       )}
