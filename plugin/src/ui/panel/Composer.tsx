@@ -20,10 +20,14 @@ export interface ComposerProps {
   readonly runState: RunState
   readonly onAsk: (question: string) => Promise<{ accepted: boolean; reason?: string }>
   readonly onStop: () => void
+  readonly draft?: string
+  readonly onDraftChange?: (draft: string) => void
 }
 
-export function Composer({ runState, onAsk, onStop }: ComposerProps) {
-  const [draft, setDraft] = useState("")
+export function Composer({ runState, onAsk, onStop, draft: controlledDraft, onDraftChange }: ComposerProps) {
+  const [localDraft, setLocalDraft] = useState("")
+  const draft = controlledDraft ?? localDraft
+  const setDraft = onDraftChange ?? setLocalDraft
   const slot = sendSlot(runState)
 
   async function submit() {

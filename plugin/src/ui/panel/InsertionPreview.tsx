@@ -7,9 +7,10 @@ interface InsertionPreviewProps {
   readonly busy: boolean
   readonly approve: (id: string) => void
   readonly discard: (id: string) => void
+  readonly recreate?: () => void
 }
 
-export function InsertionPreviewPanel({ preview, busy, approve, discard }: InsertionPreviewProps) {
+export function InsertionPreviewPanel({ preview, busy, approve, discard, recreate }: InsertionPreviewProps) {
   return (
     <section className="tw:flex tw:flex-col tw:gap-2 tw:px-3 tw:py-2 tw:text-fm-caption">
       <strong>{preview.path}</strong>
@@ -18,7 +19,14 @@ export function InsertionPreviewPanel({ preview, busy, approve, discard }: Inser
         <pre className="tw:whitespace-pre-wrap">{preview.after}</pre>
       </div>
       {preview.status === "stale" && (
-        <span className="tw:text-fm-error-text">문서가 바뀌었습니다. 미리보기를 다시 만들어 주세요.</span>
+        <>
+          <span className="tw:text-fm-error-text">문서가 바뀌었습니다. 미리보기를 다시 만들어 주세요.</span>
+          {recreate && (
+            <Button size="sm" variant="outline" onClick={recreate}>
+              Recreate preview
+            </Button>
+          )}
+        </>
       )}
       {preview.status === "pending" && (
         <div className="tw:flex tw:gap-1.5">
