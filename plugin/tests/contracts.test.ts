@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { z } from "zod"
 
 import { ToolRegistry } from "../src/tools/registry"
 import { registerVaultTools } from "../src/tools/vault-tools"
+import { registerWikipediaTools } from "../src/tools/wikipedia"
 
 describe("product contracts", () => {
   it("registry schemas describe the same accepted input", () => {
@@ -53,5 +54,21 @@ describe("product contracts", () => {
     expect(pattern.test("Notes/Safe.md")).toBe(true)
     expect(pattern.test("../secret.md")).toBe(false)
     expect(pattern.test("image.png")).toBe(false)
+  })
+
+  it("Wikipedia schemas expose IDs rather than query text or URLs", () => {
+    const registry = new ToolRegistry()
+    registerWikipediaTools(registry, vi.fn() as unknown as typeof fetch)
+
+    expect(registry.get("search_wikipedia")?.parameters).toMatchObject({
+      required: ["topicId"],
+      additionalProperties: false,
+    })
+    expect(registry.get("read_wikipedia_page")?.parameters).toMatchObject({
+      required: ["pageId", "language"],
+      additionalProperties: false,
+    })
+    expect(JSON.stringify(registry.definitions().map((tool) => tool.parameters))).not.toContain("url")
+    expect(JSON.stringify(registry.definitions().map((tool) => tool.parameters))).not.toContain("query")
   })
 })
