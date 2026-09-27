@@ -19,6 +19,8 @@ const referenceSchema = z.object({
   title: z.string(),
   url: z.string().url(),
   excerpt: z.string(),
+  pageId: z.number().int().positive().optional(),
+  language: z.enum(["ko", "en"]).optional(),
 })
 const outputSchema = z.object({
   references: z.array(referenceSchema),
@@ -71,6 +73,8 @@ export function registerWikipediaTools(registry: ToolRegistry, fetchImpl: typeof
           title: result.title,
           url: canonicalUrl(topic.language, result.title),
           excerpt: stripHtml(typeof result.snippet === "string" ? result.snippet : ""),
+          pageId: result.pageid,
+          language: topic.language,
         })
       }
       return { references, omitted: [] }
@@ -127,8 +131,10 @@ export function registerWikipediaTools(registry: ToolRegistry, fetchImpl: typeof
               kind: "external",
               source: "wikipedia",
               title: page.title,
-              url: canonicalUrl(language, page.title),
-              excerpt: excerpt.text,
+                url: canonicalUrl(language, page.title),
+                excerpt: excerpt.text,
+                pageId,
+                language,
             },
           ]
         : []
