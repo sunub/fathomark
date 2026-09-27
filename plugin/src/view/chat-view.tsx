@@ -14,6 +14,8 @@ import type { RunInput } from "../harness/harness"
 import type { RunSession } from "../harness/session"
 import type { SelectedStyleStore } from "../context/style"
 import { EditorAdapter } from "../obsidian/editor-adapter"
+import type { EditorTarget } from "../obsidian/editor-target"
+import type { PreviewController } from "../obsidian/insertion-preview"
 import { createResearchTopic } from "../tools/research-topic"
 import { App } from "../ui/App"
 
@@ -28,6 +30,7 @@ export class ChatView extends ItemView {
     private readonly session: RunSession,
     private readonly editor: EditorAdapter,
     private readonly styleStore: SelectedStyleStore,
+    private readonly previewController: PreviewController,
     private readonly modelLabel: string
   ) {
     super(leaf)
@@ -35,6 +38,7 @@ export class ChatView extends ItemView {
 
   private researchTopic: ReturnType<typeof createResearchTopic> | null = null
   private lastInput: RunInput | null = null
+  private lastTarget: EditorTarget | null = null
 
   override getViewType(): string {
     return CHAT_VIEW_TYPE
@@ -66,12 +70,15 @@ export class ChatView extends ItemView {
               if (this.harness.currentState() !== "idle" && !["complete", "incomplete", "cancelled", "failed"].includes(this.harness.currentState())) {
                 return { accepted: false, reason: "A run is already active." }
               }
+              this.lastTarget = this.editor.captureTarget()
               const input: RunInput = {
                 question,
                 packet: {
                   systemInstructions:
                     "You answer from the user's Obsidian vault and cite the notes you used.",
-                  currentNote: this.editor.currentNote(),
+                  currentNote: this.lastTarget
+                    ? this.editor.noteFromTarget(this.lastTarget)
+                    : this.editor.currentNote(),
                   style: this.styleStore.get(),
                   researchTopic: this.researchTopic,
                   evidence: [],
@@ -113,6 +120,23 @@ export class ChatView extends ItemView {
             saveStyle: async () => {
               if (!this.styleStore.get()) throw new Error("Select a style before saving it.")
               await this.styleStore.persist()
+            },
+            previewAnswer: () => {
+              if (!this.lastTarget) return null
+              const answer = this.session
+                .getSnapshot()
+                .events.filter((event) => event.type === "text")
+                .map((event) => event.delta)
+                .join("")
+              return answer ? this.previewController.create(this.lastTarget, answer) : null
+            },
+            approveInsertion: (id) => {
+              this.previewController.approve(id)
+              return this.previewController.get(id)
+            },
+            discardInsertion: (id) => {
+              this.previewController.discard(id)
+              return this.previewController.get(id)
             },
           }}
           modelLabel={this.modelLabel}
