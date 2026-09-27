@@ -10,7 +10,16 @@
 import type { ZodType } from "zod"
 
 import type { EvidenceReference } from "../context/evidence"
-import type { Capability } from "../harness/policy"
+import type { ResearchTopic } from "../context/packet"
+import type { Capability, PermissionContext } from "../harness/policy"
+
+export interface ToolExecutionContext {
+  readonly signal: AbortSignal
+  readonly researchTopic: ResearchTopic | null
+  readonly allowedWikipediaPages: Set<string>
+  readonly permissions: () => PermissionContext
+  readonly onResearchQuery: (query: string, language: "ko" | "en") => void
+}
 
 export interface ToolDefinition<Input = unknown, Output = unknown> {
   readonly name: string
@@ -18,6 +27,7 @@ export interface ToolDefinition<Input = unknown, Output = unknown> {
   readonly description: string
   readonly input: ZodType<Input>
   readonly output: ZodType<Output>
+  readonly parameters: Record<string, unknown>
   /** Drives the permission decision. One capability per tool. */
   readonly capability: Capability
   readonly approval: "never" | "each_call"
@@ -26,7 +36,7 @@ export interface ToolDefinition<Input = unknown, Output = unknown> {
   readonly resultBudgetTokens: number
   /** Turns a result into the references the sources panel and answer cite. */
   readonly provenance: (output: Output) => readonly EvidenceReference[]
-  readonly run: (input: Input, signal: AbortSignal) => Promise<Output>
+  readonly run: (input: Input, context: ToolExecutionContext) => Promise<Output>
 }
 
 export class ToolRegistry {
@@ -41,6 +51,10 @@ export class ToolRegistry {
 
   get(name: string): ToolDefinition<never, never> | undefined {
     return this.tools.get(name)
+  }
+
+  definitions(): readonly ToolDefinition<never, never>[] {
+    return [...this.tools.values()]
   }
 
   /** The allowlist the harness checks a model-proposed name against. */
