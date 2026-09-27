@@ -115,6 +115,37 @@ describe("Wikipedia tools", () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
+  it("returns the page id and language needed for the next read call", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ query: { search: [{ pageid: 12345, title: "Topic", snippet: "summary" }] } })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ query: { pages: { "12345": { title: "Topic", extract: "Full paragraph." } } } })
+      )
+    const registry = new ToolRegistry()
+    registerWikipediaTools(registry, fetchMock as unknown as typeof fetch)
+    const toolContext = context(createResearchTopic("topic", "en"))
+    const search = registry.get("search_wikipedia")!
+    const read = registry.get("read_wikipedia_page")!
+
+    const searchOutput = (await search.run(
+      { topicId: toolContext.researchTopic?.id } as never,
+      toolContext
+    )) as { references: Array<{ pageId?: number; language?: string }> }
+    expect(searchOutput.references[0]).toMatchObject({ pageId: 12345, language: "en" })
+
+    const readOutput = await read.run(
+      {
+        pageId: searchOutput.references[0]?.pageId,
+        language: searchOutput.references[0]?.language,
+      } as never,
+      toolContext
+    )
+    expect(readOutput).toMatchObject({ references: [expect.objectContaining({ excerpt: "Full paragraph." })] })
+  })
+
   it("rejects redirects", async () => {
     const fetchSpy = vi.fn(async () => {
       const result = jsonResponse({ query: { search: [] } })

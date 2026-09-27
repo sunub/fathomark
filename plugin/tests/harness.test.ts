@@ -117,6 +117,29 @@ describe("agent harness", () => {
     expect(agent.currentState()).toBe("complete")
   })
 
+  it("timeout stops waiting for a provider that ignores abort", async () => {
+    const provider: ModelProvider = {
+      id: "ignores-abort",
+      health: async () => ({ reachable: true, detail: "ok" }),
+      listModels: async () => [],
+      stream: () =>
+        (async function* () {
+          await new Promise(() => {})
+        })(),
+    }
+    const agent = new AgentHarness({
+      provider,
+      tools: new ToolRegistry(),
+      limits: PROPOSED_LIMITS,
+      permissions: { networkResearchEnabled: false },
+      model: "timeout",
+      runTimeoutMs: 10,
+    })
+
+    await expect(agent.run({ question: "hello", packet })).resolves.toBeUndefined()
+    expect(agent.currentState()).toBe("failed")
+  })
+
   it("streams a fake response through the run states and ends complete", async () => {
     const agent = harness(new FakeModelProvider({ chunks: ["a", "b"] }))
     const events: RunEvent[] = []

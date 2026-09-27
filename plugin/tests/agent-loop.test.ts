@@ -4,6 +4,7 @@ import { z } from "zod"
 import { PROPOSED_LIMITS } from "../src/harness/budget"
 import type { RunEvent, RunId } from "../src/harness/events"
 import { runAgentLoop } from "../src/harness/langchain-loop"
+import { executeTool } from "../src/harness/tool-executor"
 import type { RunInput } from "../src/harness/harness"
 import type { ModelEvent, ModelProvider, ModelRequest, RequestCounter } from "../src/providers/types"
 import { ToolRegistry } from "../src/tools/registry"
@@ -86,6 +87,41 @@ async function collect(
 }
 
 describe("agent loop", () => {
+  it("drops a successful result returned after the tool timeout", async () => {
+    const tools = new ToolRegistry()
+    tools.register({
+      name: "slow",
+      description: "slow",
+      input: z.object({}).strict(),
+      output: z.object({ ok: z.literal(true) }),
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+      capability: "read_note",
+      approval: "never",
+      timeoutMs: 5,
+      resultBudgetTokens: 10,
+      provenance: () => [],
+      run: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        return { ok: true as const }
+      },
+    })
+    const toolContext = {
+      signal: new AbortController().signal,
+      researchTopic: null,
+      allowedWikipediaPages: new Set<string>(),
+      permissions: () => ({ networkResearchEnabled: false }),
+      onResearchQuery: () => {},
+    }
+
+    await expect(
+      executeTool(
+        { callId: "slow-1", name: "slow", args: {} },
+        tools,
+        () => ({ networkResearchEnabled: false }),
+        toolContext
+      )
+    ).rejects.toThrow(/timed out/i)
+  })
   it("does not execute schema-invalid input and allows only one repair round", async () => {
     const provider = scripted([
       [
@@ -197,6 +233,24 @@ describe("agent loop", () => {
     await collect(provider, tools, () => ({ networkResearchEnabled: false }))
 
     expect(run).not.toHaveBeenCalled()
+  })
+
+  it("preserves a length completion as an incomplete loop outcome", async () => {
+    const provider = scripted([
+      [
+        { type: "text", delta: "partial" },
+        { type: "done", reason: "length" },
+      ],
+    ])
+
+    const events = await collect(provider, new ToolRegistry())
+
+    expect(events).toContainEqual({
+      type: "run_completed",
+      runId,
+      outcome: "incomplete",
+      reason: "length",
+    })
   })
 
   it("rejects an invalid tool result", async () => {

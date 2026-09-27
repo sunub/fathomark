@@ -71,4 +71,24 @@ describe("run session", () => {
 
     expect(session.getSnapshot()).toBe(before)
   })
+
+  it("keeps the draft and request target outside a closed view", () => {
+    const harness = createHarness()
+    const session = new RunSession(harness)
+    const target = {
+      id: "target-1",
+      path: "A.md",
+      text: "body",
+      selection: "body",
+      from: { line: 0, ch: 0 },
+      to: { line: 0, ch: 4 },
+    }
+    const request = { question: "q", packet }
+
+    session.setDraft("다음 질문")
+    session.rememberRequest(request, target)
+
+    expect(session.getSnapshot().draft).toBe("다음 질문")
+    expect(session.lastRequest()).toEqual({ input: request, target })
+  })
 })
