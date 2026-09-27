@@ -59,6 +59,8 @@ export class ChatView extends ItemView {
                   systemInstructions:
                     "You answer from the user's Obsidian vault and cite the notes you used.",
                   currentNote: this.editor.currentNote(),
+                  style: null,
+                  researchTopic: null,
                   evidence: [],
                   conversation: [],
                   omitted: [],
