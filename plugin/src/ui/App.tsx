@@ -17,6 +17,7 @@ import { Composer } from "./panel/Composer"
 import { ContextSummary } from "./panel/ContextSummary"
 import { Header } from "./panel/Header"
 import { Sources } from "./panel/Sources"
+import { StylePicker } from "./panel/StylePicker"
 import { Conversation } from "./screens/Conversation"
 import { INITIAL_PANEL_STATE, type PanelCommands, reduce } from "./state/panel-store"
 
@@ -53,6 +54,11 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
         evidence={state.evidence}
         conflicts={state.conflicts}
         openSource={commands.openSource}
+      />
+      <StylePicker
+        selectStyle={commands.selectStyle}
+        clearStyle={commands.clearStyle}
+        saveStyle={commands.saveStyle}
       />
 
       <div className="tw:flex tw:shrink-0 tw:flex-col tw:gap-2 tw:px-3 tw:pt-2.5 tw:pb-3">
