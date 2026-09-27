@@ -45,6 +45,14 @@ export class EditorAdapter {
     }
   }
 
+  currentSelection(): string | null {
+    const target = this.tracker?.capture()
+    if (target) return target.selection || null
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView)
+    const selection = view?.editor.getSelection() ?? ""
+    return selection || null
+  }
+
   /**
    * Returns why the insertion was refused, or null on success. Refusing is the
    * normal outcome when the user switched notes while the preview was open —
