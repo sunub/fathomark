@@ -3,7 +3,7 @@
 import hashlib
 import json
 import unicodedata
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
 
@@ -18,7 +18,7 @@ class SupervisedExample:
 
 
 def target_fingerprint(case: EvaluationCase, target_text: str) -> str:
-    payload = {**asdict(case), "target_text": target_text}
+    payload = {**case.to_dict(), "target_text": target_text}
     canonical = json.dumps(
         payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
@@ -47,9 +47,9 @@ def _validated_rows(path: Path):
                 target = data.get("target_text")
                 if not isinstance(target, str) or not target.strip():
                     raise ValueError("target_text must not be blank")
-                if any(fact not in target for fact in case.expected_facts):
+                if any(fact not in target for fact in case.required_literals()):
                     raise ValueError(
-                        "target_text must preserve every expected fact literally"
+                        "target_text must preserve every required literal fact literally"
                     )
                 if case.id in seen:
                     raise ValueError(f"duplicate case id: {case.id}")
@@ -110,7 +110,7 @@ def prepare_target_reviews(input_path: Path, output_path: Path) -> int:
                 "target_sha256": target_fingerprint(example.case, example.target_text),
             }
             record = {
-                **asdict(example.case),
+                **example.case.to_dict(),
                 "target_text": example.target_text,
                 "target_review": review,
             }
