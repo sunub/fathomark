@@ -133,6 +133,69 @@ class TrainingWorkflowTest(unittest.TestCase):
             loader.assert_not_called()
             self.assertEqual(json.loads(out.getvalue())["evaluation_cases"], 1)
 
+    def test_dry_run_rejects_training_target_as_evaluation_source_before_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            write_rows(
+                tmp / "train.jsonl",
+                [row("t", "회의는 금요일입니다.", "회의는 금요일입니다.")],
+            )
+            write_rows(tmp / "validation.jsonl", [row("v", "부산", "부산")])
+            write_rows(tmp / "eval.jsonl", [row("e", "회의는 금요일입니다.")])
+            with patch("model.training.workflow.load_base_model") as loader:
+                with self.assertRaisesRegex(ValueError, "overlap"):
+                    main(
+                        [
+                            "train-supervised",
+                            "--train-file",
+                            str(tmp / "train.jsonl"),
+                            "--validation-file",
+                            str(tmp / "validation.jsonl"),
+                            "--eval-file",
+                            str(tmp / "eval.jsonl"),
+                            "--dry-run",
+                        ]
+                    )
+                loader.assert_not_called()
+
+    def test_saved_candidate_rejects_target_as_evaluation_source_before_model(self):
+        from model.training.supervised import source_fingerprint
+
+        metadata = {
+            "training_cases": [
+                {
+                    "id": "train",
+                    "source_sha256": source_fingerprint("source"),
+                    "target_sha256": source_fingerprint("held out answer"),
+                }
+            ],
+            "validation_cases": [],
+            "documents": {},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            write_rows(tmp / "eval.jsonl", [row("e", "held out answer")])
+            with (
+                patch(
+                    "model.training.workflow.read_candidate",
+                    return_value=(metadata, {}),
+                ),
+                patch("model.training.workflow.load_base_model") as loader,
+                self.assertRaisesRegex(ValueError, "overlap"),
+            ):
+                main(
+                    [
+                        "evaluate",
+                        "--adapter-dir",
+                        str(tmp / "adapter"),
+                        "--cases-file",
+                        str(tmp / "eval.jsonl"),
+                        "--output-dir",
+                        str(tmp / "output"),
+                    ]
+                )
+            loader.assert_not_called()
+
     def test_actual_local_supervised_training_then_review_workflow(self):
         from tokenizers import Tokenizer
         from tokenizers.models import WordLevel
