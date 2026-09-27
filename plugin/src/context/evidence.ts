@@ -33,6 +33,11 @@ export interface ExternalEvidenceReference {
 
 export type EvidenceReference = VaultEvidenceReference | ExternalEvidenceReference
 
+export interface CitedEvidence {
+  readonly sourceId: string
+  readonly reference: EvidenceReference
+}
+
 /**
  * Identity for deduplication. PRODUCT.md acceptance criterion 4 requires
  * selected evidence to be deduplicated, and two retrievals of the same note

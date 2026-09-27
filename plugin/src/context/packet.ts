@@ -12,10 +12,23 @@ import type { EvidenceReference } from "./evidence"
 export interface ContextPacket {
   readonly systemInstructions: string
   readonly currentNote: CurrentNoteContext | null
+  readonly style: SelectedStyle | null
+  readonly researchTopic: ResearchTopic | null
   readonly evidence: readonly EvidenceReference[]
   readonly conversation: readonly ConversationTurn[]
   /** What was left out, and why. The UI surfaces this rather than hiding it. */
   readonly omitted: readonly OmittedItem[]
+}
+
+export interface SelectedStyle {
+  readonly id: string
+  readonly text: string
+}
+
+export interface ResearchTopic {
+  readonly id: string
+  readonly text: string
+  readonly language: "ko" | "en"
 }
 
 export interface CurrentNoteContext {
