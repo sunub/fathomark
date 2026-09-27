@@ -19,6 +19,9 @@ function commands() {
     retry: vi.fn(async () => ({ accepted: true })),
     openSource: vi.fn(async () => {}),
     setResearchTopic: vi.fn(),
+    selectStyle: vi.fn(async () => {}),
+    clearStyle: vi.fn(async () => {}),
+    saveStyle: vi.fn(async () => {}),
   }
 }
 

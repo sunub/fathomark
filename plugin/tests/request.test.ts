@@ -144,6 +144,21 @@ describe("request building", () => {
     )
   })
 
+  it("style facts stay in the style section and never become citations", async () => {
+    const secret = "SECRET_STYLE_FACT_73"
+    const styled = {
+      ...input,
+      packet: { ...input.packet, style: { id: "style-secret", text: secret } },
+    }
+    const result = await buildRequest(styled, [], citations, [], PROPOSED_LIMITS, counter(100), "m")
+    const system = result.request.messages[0]?.content ?? ""
+
+    expect(system.match(new RegExp(secret, "g"))).toHaveLength(1)
+    expect(system).toContain("never as factual evidence")
+    expect(system).toContain('"section":"style_example"')
+    expect(system).not.toContain(`[[S1]] ${secret}`)
+  })
+
   it("reselected evidence keeps its source id", () => {
     expect(registerEvidence(citations, [citations[0]!.reference])).toEqual(citations)
   })
