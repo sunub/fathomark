@@ -22,6 +22,9 @@ function commands() {
     selectStyle: vi.fn(async () => {}),
     clearStyle: vi.fn(async () => {}),
     saveStyle: vi.fn(async () => {}),
+    previewAnswer: vi.fn(() => null),
+    approveInsertion: vi.fn(() => null),
+    discardInsertion: vi.fn(() => null),
   }
 }
 
