@@ -1,17 +1,8 @@
 import { type App, MarkdownView, type WorkspaceLeaf } from "obsidian"
 
-import type { EditorPosition } from "../context/insertion"
+import type { EditorPosition, EditorTarget } from "../context/insertion"
 
-export type { EditorPosition } from "../context/insertion"
-
-export interface EditorTarget {
-  readonly id: string
-  readonly path: string
-  readonly text: string
-  readonly selection: string
-  readonly from: EditorPosition
-  readonly to: EditorPosition
-}
+export type { EditorPosition, EditorTarget } from "../context/insertion"
 
 export class EditorTargetTracker {
   private lastView: MarkdownView | null
