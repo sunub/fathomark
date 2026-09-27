@@ -27,6 +27,7 @@ export interface HarnessOptions {
   readonly limits: BudgetLimits
   readonly permissions: PermissionContext
   readonly model: string
+  readonly runTimeoutMs?: number
 }
 
 export interface RunInput {
@@ -75,8 +76,18 @@ export class AgentHarness {
     this.controller = controller
     const limiter = new CallLimiter()
     const started = Date.now()
+    const timeoutMs = this.options.runTimeoutMs ?? 120_000
+    const timeout = setTimeout(() => {
+      controller.abort(new DOMException(`The run timed out after ${timeoutMs}ms.`, "TimeoutError"))
+    }, timeoutMs)
 
     try {
+      this.emit({
+        type: "run_started",
+        runId,
+        question: input.question,
+        currentNote: input.packet.currentNote,
+      })
       this.go(runId, "preparing_context")
       this.emit({ type: "budget", runId, usage: emptyUsage(this.options.limits) })
 
@@ -94,6 +105,7 @@ export class AgentHarness {
       this.go(runId, "waiting_for_model")
 
       let sawOutput = false
+      let completionReason: "stop" | "length" | "tool_calls" | null = null
       for await (const event of this.options.provider.stream(request, controller.signal)) {
         switch (event.type) {
           case "text":
@@ -136,20 +148,33 @@ export class AgentHarness {
           }
 
           case "done":
+            completionReason = event.reason
             this.go(runId, isActive(this.state) && this.state !== "streaming" ? "streaming" : this.state)
             break
         }
       }
 
+      if (completionReason === null) {
+        throw new Error("The model stream ended without a completion event.")
+      }
+
       this.go(runId, "preparing_answer")
       this.emit({ type: "usage", runId, elapsedMs: Date.now() - started, tokens: 0 })
-      this.go(runId, "complete")
+      this.go(runId, completionReason === "stop" ? "complete" : "incomplete")
     } catch (error) {
       /*
        * Cancellation is an outcome, not a failure. Conflating them is how a
        * panel ends up showing a red error for a Stop the user pressed.
        */
-      if (controller.signal.aborted) {
+      if (controller.signal.reason instanceof DOMException && controller.signal.reason.name === "TimeoutError") {
+        this.emit({
+          type: "error",
+          runId,
+          message: controller.signal.reason.message,
+          recoverable: true,
+        })
+        this.go(runId, "failed")
+      } else if (controller.signal.aborted) {
         this.go(runId, "cancelled")
       } else {
         this.emit({
@@ -161,6 +186,7 @@ export class AgentHarness {
         this.go(runId, "failed")
       }
     } finally {
+      clearTimeout(timeout)
       this.controller = null
     }
   }
