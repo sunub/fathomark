@@ -8,7 +8,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react"
 
-import { Alert, AlertDescription } from "@fathomark/design-system"
+import { Alert, AlertDescription, Button } from "@fathomark/design-system"
 
 import type { RunSnapshot } from "../harness/events"
 import { isActive } from "../harness/run-state"
@@ -16,6 +16,7 @@ import { BudgetBar } from "./panel/BudgetBar"
 import { Composer } from "./panel/Composer"
 import { ContextSummary } from "./panel/ContextSummary"
 import { Header } from "./panel/Header"
+import { InsertionPreviewPanel } from "./panel/InsertionPreview"
 import { Sources } from "./panel/Sources"
 import { StylePicker } from "./panel/StylePicker"
 import { Conversation } from "./screens/Conversation"
@@ -36,6 +37,7 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
     [snapshot]
   )
   const [researchTopic, setResearchTopic] = useState("")
+  const [insertionPreview, setInsertionPreview] = useState<ReturnType<PanelCommands["previewAnswer"]>>(null)
 
   return (
     <div className="tw:flex tw:h-full tw:flex-col">
@@ -60,6 +62,21 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
         clearStyle={commands.clearStyle}
         saveStyle={commands.saveStyle}
       />
+      {state.answer && !insertionPreview && (
+        <div className="tw:px-3">
+          <Button size="sm" variant="outline" onClick={() => setInsertionPreview(commands.previewAnswer())}>
+            Preview answer insertion
+          </Button>
+        </div>
+      )}
+      {insertionPreview && (
+        <InsertionPreviewPanel
+          preview={insertionPreview}
+          busy={isActive(state.runState)}
+          approve={(id) => setInsertionPreview(commands.approveInsertion(id))}
+          discard={(id) => setInsertionPreview(commands.discardInsertion(id))}
+        />
+      )}
 
       <div className="tw:flex tw:shrink-0 tw:flex-col tw:gap-2 tw:px-3 tw:pt-2.5 tw:pb-3">
         {/*
