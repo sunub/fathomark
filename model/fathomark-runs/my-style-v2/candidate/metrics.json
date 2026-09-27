@@ -1,0 +1,31 @@
+{
+  "validation_loss_before": 1.6102776258564844,
+  "validation_loss_after": 1.0553532409473414,
+  "selected_epoch": 3,
+  "best_validation_loss": 1.0553532409473414,
+  "optimizer_steps": 18,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 1.460128123200465,
+      "validation_loss": 1.4349110554074676
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.2366626672531356,
+      "validation_loss": 1.184778124359312
+    },
+    {
+      "epoch": 3,
+      "train_loss": 1.0419302493611393,
+      "validation_loss": 1.0553532409473414
+    }
+  ],
+  "training": {
+    "epochs": 3,
+    "learning_rate": 0.0001,
+    "accumulation_steps": 4,
+    "max_grad_norm": 1.0,
+    "seed": 42
+  }
+}

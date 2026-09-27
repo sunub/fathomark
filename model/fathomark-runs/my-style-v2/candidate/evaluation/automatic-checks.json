@@ -1,0 +1,42 @@
+[
+  {
+    "case_id": "folder-adb3f2a345d9b0c3a9c9f4a1a46ed112511b61e4b0453a78e418aa5591b9c011",
+    "approach": "prompt_baseline",
+    "missing_literal_facts": [
+      "0이된"
+    ]
+  },
+  {
+    "case_id": "folder-1dbe3d5bfba46663a3f80deb523deee70b16310ca38b977953970023617c767b",
+    "approach": "prompt_baseline",
+    "missing_literal_facts": [
+      "5.3초,",
+      "2.88초로",
+      "70ms로"
+    ]
+  },
+  {
+    "case_id": "folder-32f82c274ee0ee79bb5b7e81c9957248e80a0bfb67a2b20dffda981cd73f883d",
+    "approach": "prompt_baseline",
+    "missing_literal_facts": []
+  },
+  {
+    "case_id": "folder-adb3f2a345d9b0c3a9c9f4a1a46ed112511b61e4b0453a78e418aa5591b9c011",
+    "approach": "lora",
+    "missing_literal_facts": []
+  },
+  {
+    "case_id": "folder-1dbe3d5bfba46663a3f80deb523deee70b16310ca38b977953970023617c767b",
+    "approach": "lora",
+    "missing_literal_facts": [
+      "5.3초,",
+      "2.88초로",
+      "70ms로"
+    ]
+  },
+  {
+    "case_id": "folder-32f82c274ee0ee79bb5b7e81c9957248e80a0bfb67a2b20dffda981cd73f883d",
+    "approach": "lora",
+    "missing_literal_facts": []
+  }
+]

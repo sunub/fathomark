@@ -1,0 +1,10 @@
+{
+  "documents": {
+    "train": 25,
+    "validation": 7,
+    "evaluation": 7
+  },
+  "training_data_status": "auto_derived_unreviewed",
+  "status": "pending_review",
+  "candidate": "/home/sunub/workspace/fathomark/model/fathomark-runs/my-style-v2/candidate"
+}
