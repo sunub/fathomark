@@ -7,7 +7,9 @@
  * Obsidian and no model anywhere.
  */
 
-import type { BudgetUsage, RunEvent } from "../../harness/events"
+import type { EvidenceReference } from "../../context/evidence"
+import type { CurrentNoteContext } from "../../context/packet"
+import type { BudgetUsage, EvidenceConflictClaim, RunEvent } from "../../harness/events"
 import type { RunState } from "../../harness/run-state"
 
 export interface ToolActivity {
@@ -25,6 +27,10 @@ export interface PanelState {
   /** Persistent and actionable. Never cleared by the next state change. */
   readonly error: string | null
   readonly elapsedMs: number | null
+  readonly question: string | null
+  readonly currentNote: CurrentNoteContext | null
+  readonly evidence: ReadonlyMap<string, EvidenceReference>
+  readonly conflicts: readonly EvidenceConflictClaim[]
 }
 
 export const INITIAL_PANEL_STATE: PanelState = {
@@ -34,16 +40,30 @@ export const INITIAL_PANEL_STATE: PanelState = {
   usage: null,
   error: null,
   elapsedMs: null,
+  question: null,
+  currentNote: null,
+  evidence: new Map(),
+  conflicts: [],
 }
 
 /** What the composer can do. Both are always available — see sendSlot(). */
 export interface PanelCommands {
-  ask(question: string): void
+  ask(question: string): Promise<{ accepted: boolean; reason?: string }>
   stop(): void
+  retry(): Promise<{ accepted: boolean; reason?: string }>
+  openSource(reference: EvidenceReference): Promise<void>
+  setResearchTopic(text: string, language: "ko" | "en"): void
 }
 
 export function reduce(state: PanelState, event: RunEvent): PanelState {
   switch (event.type) {
+    case "run_started":
+      return {
+        ...INITIAL_PANEL_STATE,
+        question: event.question,
+        currentNote: event.currentNote,
+      }
+
     case "state":
       // A new run clears the previous answer; nothing else does.
       return event.state === "preparing_context"
@@ -54,6 +74,7 @@ export function reduce(state: PanelState, event: RunEvent): PanelState {
       return { ...state, answer: state.answer + event.delta }
 
     case "tool_call":
+      if (state.activity.some((item) => item.callId === event.callId)) return state
       return {
         ...state,
         activity: [
@@ -90,6 +111,15 @@ export function reduce(state: PanelState, event: RunEvent): PanelState {
 
     case "usage":
       return { ...state, elapsedMs: event.elapsedMs }
+
+    case "evidence": {
+      const evidence = new Map(state.evidence)
+      evidence.set(event.sourceId, event.reference)
+      return { ...state, evidence }
+    }
+
+    case "evidence_conflict":
+      return { ...state, conflicts: [...state.conflicts, ...event.claims] }
 
     default:
       return state
