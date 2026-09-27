@@ -3,7 +3,6 @@
 import hashlib
 import json
 import math
-import unicodedata
 from pathlib import Path
 
 import torch
@@ -22,7 +21,9 @@ from model.training.lora import inject_lora, load_adapter_state_dict
 from model.training.supervised import (
     build_supervised_samples,
     ensure_disjoint,
+    ensure_unseen,
     load_supervised,
+    source_fingerprint,
 )
 from model.training.trainer import TrainConfig, fit, read_candidate, save_candidate
 
@@ -70,20 +71,16 @@ def add_commands(commands):
     review.add_argument("--reviews-file", required=True, type=Path)
 
 
-def _normalize(text):
-    return " ".join(unicodedata.normalize("NFKC", text).split()).casefold()
-
-
 def _fingerprint(text):
-    return hashlib.sha256(_normalize(text).encode("utf-8")).hexdigest()
+    return source_fingerprint(text)
 
 
 def _case_manifest(examples):
     return [
         {
             "id": item.case.id,
-            "source_sha256": _fingerprint(item.case.source_text),
-            "target_sha256": _fingerprint(item.target_text),
+            "source_sha256": source_fingerprint(item.case.source_text),
+            "target_sha256": source_fingerprint(item.target_text),
         }
         for item in examples
     ]
@@ -230,24 +227,13 @@ def fit_candidate(
 
 def _check_seen_cases(metadata, cases):
     used = metadata.get("training_cases", []) + metadata.get("validation_cases", [])
-    used_ids = {_normalize(item["id"]) for item in used}
-    used_sources = {item["source_sha256"] for item in used}
-    used_sources.update(
-        item["target_sha256"] for item in used if "target_sha256" in item
-    )
+    ensure_unseen(cases, used)
     document_hashes = {
         item["sha256"]
         for split in metadata.get("documents", {}).values()
         for item in split
     }
     for case in cases:
-        if (
-            _normalize(case.id) in used_ids
-            or _fingerprint(case.source_text) in used_sources
-        ):
-            raise ValueError(
-                f"Evaluation case overlaps training or validation: {case.id}"
-            )
         digest = hashlib.sha256(
             case.source_text.replace("\r\n", "\n").strip().encode("utf-8")
         ).hexdigest()

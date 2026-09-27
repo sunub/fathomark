@@ -3,7 +3,7 @@
 import hashlib
 import json
 import unicodedata
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
 
@@ -18,7 +18,7 @@ class SupervisedExample:
 
 
 def target_fingerprint(case: EvaluationCase, target_text: str) -> str:
-    payload = {**asdict(case), "target_text": target_text}
+    payload = {**case.to_dict(), "target_text": target_text}
     canonical = json.dumps(
         payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
@@ -47,9 +47,9 @@ def _validated_rows(path: Path):
                 target = data.get("target_text")
                 if not isinstance(target, str) or not target.strip():
                     raise ValueError("target_text must not be blank")
-                if any(fact not in target for fact in case.expected_facts):
+                if any(fact not in target for fact in case.required_literals()):
                     raise ValueError(
-                        "target_text must preserve every expected fact literally"
+                        "target_text must preserve every required literal fact literally"
                     )
                 if case.id in seen:
                     raise ValueError(f"duplicate case id: {case.id}")
@@ -110,7 +110,7 @@ def prepare_target_reviews(input_path: Path, output_path: Path) -> int:
                 "target_sha256": target_fingerprint(example.case, example.target_text),
             }
             record = {
-                **asdict(example.case),
+                **example.case.to_dict(),
                 "target_text": example.target_text,
                 "target_review": review,
             }
@@ -159,23 +159,57 @@ def _normalize(text: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", text).split()).casefold()
 
 
+def source_fingerprint(text: str) -> str:
+    """Fingerprint text with the normalization used by existing manifests."""
+    return hashlib.sha256(_normalize(text).encode("utf-8")).hexdigest()
+
+
+def ensure_unseen(cases: list[EvaluationCase], used: list[dict[str, str]]) -> None:
+    """Reject evaluation IDs or sources already used as a source or target."""
+    used_ids = {_normalize(item["id"]) for item in used}
+    used_texts = {
+        digest
+        for item in used
+        for field in ("source_sha256", "target_sha256")
+        if (digest := item.get(field))
+    }
+    for case in cases:
+        if (
+            _normalize(case.id) in used_ids
+            or source_fingerprint(case.source_text) in used_texts
+        ):
+            raise ValueError(
+                f"Evaluation case overlaps training or validation: {case.id}"
+            )
+
+
 def ensure_disjoint(training, validation, evaluation_cases) -> None:
-    """Reject source reuse across partitions, including differently named cases."""
-    splits = {
+    """Reject source or target reuse across partitions."""
+    split_cases = {
         "training": [example.case for example in training],
         "validation": [example.case for example in validation],
         "evaluation": list(evaluation_cases),
     }
-    for name, cases in splits.items():
+    for name, cases in split_cases.items():
         if not cases:
             raise ValueError(f"{name} must be nonempty")
-    for (left_name, left), (right_name, right) in combinations(splits.items(), 2):
-        for field in ("id", "source_text"):
-            left_values = {_normalize(getattr(case, field)) for case in left}
-            right_values = {_normalize(getattr(case, field)) for case in right}
-            if left_values & right_values:
-                raise ValueError(f"{left_name}/{right_name} overlap in {field}")
-    if {_normalize(example.target_text) for example in training} & {
-        _normalize(example.target_text) for example in validation
-    }:
-        raise ValueError("training/validation overlap in target_text")
+    split_texts = {
+        "training": {
+            *(source_fingerprint(example.case.source_text) for example in training),
+            *(source_fingerprint(example.target_text) for example in training),
+        },
+        "validation": {
+            *(source_fingerprint(example.case.source_text) for example in validation),
+            *(source_fingerprint(example.target_text) for example in validation),
+        },
+        "evaluation": {
+            source_fingerprint(case.source_text) for case in evaluation_cases
+        },
+    }
+    for (left_name, left), (right_name, right) in combinations(split_cases.items(), 2):
+        if {_normalize(case.id) for case in left} & {
+            _normalize(case.id) for case in right
+        }:
+            raise ValueError(f"{left_name}/{right_name} overlap in id")
+        if split_texts[left_name] & split_texts[right_name]:
+            raise ValueError(f"{left_name}/{right_name} overlap in source or target")

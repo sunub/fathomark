@@ -12,6 +12,8 @@ export interface ModelInfo {
   /** Native tool/function calling. Prompt-only JSON emulation is not supported. */
   readonly supportsTools: boolean
   readonly contextLength: number | null
+  readonly usable: boolean
+  readonly reason?: string
 }
 
 export interface ModelRequest {
@@ -19,6 +21,7 @@ export interface ModelRequest {
   readonly messages: readonly ModelMessage[]
   readonly tools: readonly ModelToolSchema[]
   readonly maxOutputTokens: number
+  readonly contextWindow: number
 }
 
 export type ModelMessage =
@@ -43,10 +46,25 @@ export interface ModelToolSchema {
 export type ModelEvent =
   | { type: "text"; delta: string }
   | { type: "tool_call"; call: ModelToolCall }
-  | { type: "done"; reason: "stop" | "length" | "tool_calls" }
+  | {
+      type: "done"
+      reason: "stop" | "length" | "tool_calls"
+      usage?: {
+        readonly promptTokens: number
+        readonly outputTokens: number
+        readonly loadMs?: number
+        readonly promptMs?: number
+        readonly generationMs?: number
+      }
+    }
 
-export interface TokenCount {
+export interface TokenEstimate {
   readonly promptTokens: number
+  readonly method: "exact" | "verified_upper_bound"
+}
+
+export interface RequestCounter {
+  count(request: ModelRequest): Promise<TokenEstimate>
 }
 
 export interface ProviderHealth {
@@ -60,5 +78,5 @@ export interface ModelProvider {
   health(signal: AbortSignal): Promise<ProviderHealth>
   listModels(signal: AbortSignal): Promise<ModelInfo[]>
   stream(request: ModelRequest, signal: AbortSignal): AsyncIterable<ModelEvent>
-  countTokens?(request: ModelRequest): Promise<TokenCount>
+  countTokens?(request: ModelRequest): Promise<TokenEstimate>
 }

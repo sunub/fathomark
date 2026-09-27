@@ -8,6 +8,7 @@ from unittest.mock import patch
 from model.evaluation.case import EvaluationCase
 from model.evaluation.result import EvaluationResult
 from model.evaluation.runner import (
+    _fingerprint,
     build_prompt,
     finalize_review,
     generate_results,
@@ -85,6 +86,39 @@ class EvaluationRunnerTest(unittest.TestCase):
             template = root / "reviews.template.jsonl"
             with self.assertRaises((ValueError, TypeError)):
                 finalize_review(root, template)
+
+    def test_v2_paraphrase_waits_for_human_review(self):
+        case = replace(
+            self.case,
+            schema_version=2,
+            expected_facts=("회의는 금요일에 열린다.",),
+            literal_facts=("금요일",),
+        )
+        passing = [
+            replace(result, generated_text="금요일에 회의를 엽니다.")
+            for result in self.results
+        ]
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "run"
+            report = write_evaluation(root, [case], passing)
+            self.assertEqual(report["status"], "pending_review")
+            self.assertEqual(
+                finalize_review(root, self.review_file(root))["status"],
+                "quality_passed_pending_style_choice",
+            )
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "run"
+            missing = [passing[0], replace(passing[1], generated_text="회의를 엽니다.")]
+            write_evaluation(root, [case], missing)
+            self.assertEqual(
+                finalize_review(root, self.review_file(root))["status"], "rejected"
+            )
+
+    def test_v1_fingerprint_remains_compatible(self):
+        self.assertEqual(
+            _fingerprint(self.case, self.results[1]),
+            "bc211358e118c744dc43910e9436aaeeb1fb2e3dc90ab2a10081eec1e122eb5c",
+        )
 
     def test_review_success_creates_method_blind_comparison_only(self):
         with TemporaryDirectory() as tmp:

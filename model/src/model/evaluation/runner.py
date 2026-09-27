@@ -39,6 +39,7 @@ def validate_cases(cases: list[EvaluationCase]) -> None:
             for fact in case.expected_facts
         ):
             raise ValueError("expected_facts must contain nonblank facts")
+        case.required_literals()
 
 
 def build_prompt(case: EvaluationCase) -> str:
@@ -108,7 +109,7 @@ def _pairs(
 
 def _fingerprint(case: EvaluationCase, result: EvaluationResult) -> str:
     payload = json.dumps(
-        {"case": asdict(case), "result": asdict(result)},
+        {"case": case.to_dict(), "result": asdict(result)},
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
@@ -118,7 +119,9 @@ def _fingerprint(case: EvaluationCase, result: EvaluationResult) -> str:
 
 
 def _missing(case: EvaluationCase, result: EvaluationResult) -> list[str]:
-    return [fact for fact in case.expected_facts if fact not in result.generated_text]
+    return [
+        fact for fact in case.required_literals() if fact not in result.generated_text
+    ]
 
 
 def _json(path: Path, value: object) -> None:
@@ -161,7 +164,9 @@ def write_evaluation(
     }
     output.mkdir(parents=True, exist_ok=False)
     (output / "cases.jsonl").write_text(
-        "".join(json.dumps(asdict(case), ensure_ascii=False) + "\n" for case in cases),
+        "".join(
+            json.dumps(case.to_dict(), ensure_ascii=False) + "\n" for case in cases
+        ),
         encoding="utf-8",
     )
     save_results(results, output / "results.jsonl")

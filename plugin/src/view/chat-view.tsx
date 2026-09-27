@@ -10,7 +10,11 @@ import { StrictMode } from "react"
 import { type Root, createRoot } from "react-dom/client"
 
 import type { AgentHarness } from "../harness/harness"
+import type { RunSession } from "../harness/session"
+import type { SelectedStyleStore } from "../context/style"
 import { EditorAdapter } from "../obsidian/editor-adapter"
+import type { PreviewController } from "../obsidian/insertion-preview"
+import { createResearchTopic } from "../tools/research-topic"
 import { App } from "../ui/App"
 
 export const CHAT_VIEW_TYPE = "fathomark-chat"
@@ -21,11 +25,16 @@ export class ChatView extends ItemView {
   constructor(
     leaf: WorkspaceLeaf,
     private readonly harness: AgentHarness,
+    private readonly session: RunSession,
     private readonly editor: EditorAdapter,
+    private readonly styleStore: SelectedStyleStore,
+    private readonly previewController: PreviewController,
     private readonly modelLabel: string
   ) {
     super(leaf)
   }
+
+  private researchTopic: ReturnType<typeof createResearchTopic> | null = null
 
   override getViewType(): string {
     return CHAT_VIEW_TYPE
@@ -50,22 +59,85 @@ export class ChatView extends ItemView {
     this.root.render(
       <StrictMode>
         <App
-          subscribe={(listener) => this.harness.subscribe(listener)}
+          getSnapshot={() => this.session.getSnapshot()}
+          subscribe={(listener) => this.session.subscribe(listener)}
           commands={{
-            ask: (question) => {
-              void this.harness.run({
+            ask: async (question) => {
+              if (this.harness.currentState() !== "idle" && !["complete", "incomplete", "cancelled", "failed"].includes(this.harness.currentState())) {
+                return { accepted: false, reason: "A run is already active." }
+              }
+              const target = this.editor.captureTarget()
+              const input = {
                 question,
                 packet: {
                   systemInstructions:
                     "You answer from the user's Obsidian vault and cite the notes you used.",
-                  currentNote: this.editor.currentNote(),
+                  currentNote: target
+                    ? this.editor.noteFromTarget(target)
+                    : this.editor.currentNote(),
+                  style: this.styleStore.get(),
+                  researchTopic: this.researchTopic,
                   evidence: [],
                   conversation: [],
                   omitted: [],
                 },
-              })
+              }
+              this.session.rememberRequest(input, target)
+              void this.harness.run(input)
+              return { accepted: true }
             },
             stop: () => this.harness.cancel(),
+            retry: async () => {
+              const request = this.session.lastRequest()
+              if (!request) return { accepted: false, reason: "There is no run to retry." }
+              void this.harness.run(request.input)
+              return { accepted: true }
+            },
+            openSource: async (reference) => {
+              if (reference.kind === "vault") {
+                await this.app.workspace.openLinkText(reference.path, "", false)
+              } else {
+                window.open(reference.url, "_blank", "noopener,noreferrer")
+              }
+            },
+            setResearchTopic: (text, language) => {
+              this.researchTopic = text.trim() ? createResearchTopic(text, language) : null
+            },
+            selectStyle: async () => {
+              const selection = this.editor.currentSelection()
+              if (!selection) throw new Error("Select a passage in a note first.")
+              this.harness.cancel()
+              this.styleStore.select(selection)
+            },
+            clearStyle: async () => {
+              this.harness.cancel()
+              this.styleStore.clear()
+              await this.styleStore.persist()
+            },
+            saveStyle: async () => {
+              if (!this.styleStore.get()) throw new Error("Select a style before saving it.")
+              await this.styleStore.persist()
+            },
+            setDraft: (draft) => this.session.setDraft(draft),
+            previewAnswer: (recapture = false) => {
+              const request = this.session.lastRequest()
+              const target = recapture ? this.editor.captureTarget() : request?.target
+              if (!target) return null
+              const answer = this.session
+                .getSnapshot()
+                .events.filter((event) => event.type === "text")
+                .map((event) => event.delta)
+                .join("")
+              return answer ? this.previewController.create(target, answer) : null
+            },
+            approveInsertion: (id) => {
+              this.previewController.approve(id)
+              return this.previewController.get(id)
+            },
+            discardInsertion: (id) => {
+              this.previewController.discard(id)
+              return this.previewController.get(id)
+            },
           }}
           modelLabel={this.modelLabel}
         />

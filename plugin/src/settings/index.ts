@@ -7,6 +7,8 @@
  * in one is a migration nobody wants.
  */
 
+import type { SelectedStyle } from "../context/packet"
+
 export interface FathomarkSettings {
   /** Where the local provider listens. Localhost only in the MVP. */
   readonly providerBaseUrl: string
@@ -16,12 +18,14 @@ export interface FathomarkSettings {
    * network tool a conscious opt-in.
    */
   readonly networkResearchEnabled: boolean
+  readonly selectedStyle: SelectedStyle | null
 }
 
 export const DEFAULT_SETTINGS: FathomarkSettings = {
   providerBaseUrl: "http://127.0.0.1:11434",
   model: "fake",
   networkResearchEnabled: false,
+  selectedStyle: null,
 }
 
 /** Tolerates a settings file written by an older version, or a corrupt one. */
@@ -38,7 +42,16 @@ export function parseSettings(raw: unknown): FathomarkSettings {
       typeof value.networkResearchEnabled === "boolean"
         ? value.networkResearchEnabled
         : DEFAULT_SETTINGS.networkResearchEnabled,
+    selectedStyle: parseSelectedStyle(value.selectedStyle),
   }
+}
+
+function parseSelectedStyle(value: unknown): SelectedStyle | null {
+  if (typeof value !== "object" || value === null) return null
+  const candidate = value as Partial<Record<keyof SelectedStyle, unknown>>
+  return typeof candidate.id === "string" && typeof candidate.text === "string"
+    ? { id: candidate.id, text: candidate.text }
+    : null
 }
 
 /**

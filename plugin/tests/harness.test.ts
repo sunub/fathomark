@@ -4,6 +4,7 @@ import { PROPOSED_LIMITS } from "../src/harness/budget"
 import type { RunEvent } from "../src/harness/events"
 import { AgentHarness } from "../src/harness/harness"
 import { FakeModelProvider } from "../src/providers/fake"
+import type { ModelProvider } from "../src/providers/types"
 import { ToolRegistry } from "../src/tools/registry"
 
 function harness(provider: FakeModelProvider) {
@@ -19,12 +20,126 @@ function harness(provider: FakeModelProvider) {
 const packet = {
   systemInstructions: "test",
   currentNote: null,
+  style: null,
+  researchTopic: null,
   evidence: [],
   conversation: [],
   omitted: [],
 } as const
 
 describe("agent harness", () => {
+  it("length is incomplete", async () => {
+    const provider: ModelProvider = {
+      id: "length",
+      health: async () => ({ reachable: true, detail: "ok" }),
+      listModels: async () => [],
+      stream: async function* () {
+        yield { type: "text", delta: "partial" }
+        yield { type: "done", reason: "length" }
+      },
+    }
+    const agent = new AgentHarness({
+      provider,
+      tools: new ToolRegistry(),
+      limits: PROPOSED_LIMITS,
+      permissions: { networkResearchEnabled: false },
+      model: "length",
+    })
+
+    await agent.run({ question: "hello", packet })
+
+    expect(agent.currentState()).toBe("incomplete")
+  })
+
+  it("EOF without done fails", async () => {
+    const provider: ModelProvider = {
+      id: "eof",
+      health: async () => ({ reachable: true, detail: "ok" }),
+      listModels: async () => [],
+      stream: async function* () {
+        yield { type: "text", delta: "orphan" }
+      },
+    }
+    const agent = new AgentHarness({
+      provider,
+      tools: new ToolRegistry(),
+      limits: PROPOSED_LIMITS,
+      permissions: { networkResearchEnabled: false },
+      model: "eof",
+    })
+    const events: RunEvent[] = []
+    agent.subscribe((event) => events.push(event))
+
+    await agent.run({ question: "hello", packet })
+
+    expect(events.find((event) => event.type === "error")).toMatchObject({
+      message: "The model stream ended without a completion event.",
+    })
+    expect(agent.currentState()).toBe("failed")
+  })
+
+  it("timeout remains input ready", async () => {
+    let attempts = 0
+    const provider: ModelProvider = {
+      id: "timeout",
+      health: async () => ({ reachable: true, detail: "ok" }),
+      listModels: async () => [],
+      stream: (_request, signal) =>
+        (async function* () {
+          attempts += 1
+          if (attempts > 1) {
+            yield { type: "done", reason: "stop" }
+            return
+          }
+          await new Promise<void>((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+          })
+        })(),
+    }
+    const agent = new AgentHarness({
+      provider,
+      tools: new ToolRegistry(),
+      limits: PROPOSED_LIMITS,
+      permissions: { networkResearchEnabled: false },
+      model: "timeout",
+      runTimeoutMs: 20,
+    })
+    const events: RunEvent[] = []
+    agent.subscribe((event) => events.push(event))
+
+    await agent.run({ question: "hello", packet })
+
+    expect(events.find((event) => event.type === "error")).toMatchObject({
+      message: "The run timed out after 20ms.",
+    })
+    expect(agent.currentState()).toBe("failed")
+    await agent.run({ question: "again", packet })
+    expect(agent.currentState()).toBe("complete")
+  })
+
+  it("timeout stops waiting for a provider that ignores abort", async () => {
+    const provider: ModelProvider = {
+      id: "ignores-abort",
+      health: async () => ({ reachable: true, detail: "ok" }),
+      listModels: async () => [],
+      stream: () =>
+        (async function* () {
+          await new Promise(() => {})
+        })(),
+    }
+    const agent = new AgentHarness({
+      provider,
+      tools: new ToolRegistry(),
+      limits: PROPOSED_LIMITS,
+      permissions: { networkResearchEnabled: false },
+      model: "timeout",
+      runTimeoutMs: 10,
+    })
+
+    await expect(agent.run({ question: "hello", packet })).resolves.toBeUndefined()
+    expect(agent.currentState()).toBe("failed")
+  })
+
   it("streams a fake response through the run states and ends complete", async () => {
     const agent = harness(new FakeModelProvider({ chunks: ["a", "b"] }))
     const events: RunEvent[] = []

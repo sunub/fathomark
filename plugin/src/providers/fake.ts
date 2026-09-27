@@ -49,7 +49,15 @@ export class FakeModelProvider implements ModelProvider {
 
   async listModels(signal: AbortSignal): Promise<ModelInfo[]> {
     signal.throwIfAborted()
-    return [{ id: "fake", label: "Fake (deterministic)", supportsTools: true, contextLength: 16_000 }]
+    return [
+      {
+        id: "fake",
+        label: "Fake (deterministic)",
+        supportsTools: true,
+        contextLength: 16_000,
+        usable: true,
+      },
+    ]
   }
 
   async *stream(_request: ModelRequest, signal: AbortSignal): AsyncIterable<ModelEvent> {

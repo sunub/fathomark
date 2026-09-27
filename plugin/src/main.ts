@@ -1,8 +1,12 @@
 import { Plugin, type WorkspaceLeaf } from "obsidian";
 
 import { AgentHarness } from "./harness/harness";
+import { RunSession } from "./harness/session";
+import { SelectedStyleStore } from "./context/style";
 import { PROPOSED_LIMITS } from "./harness/budget";
 import { EditorAdapter } from "./obsidian/editor-adapter";
+import { EditorTargetTracker } from "./obsidian/editor-target";
+import { PreviewController } from "./obsidian/insertion-preview";
 import { VaultAdapter } from "./obsidian/vault-adapter";
 import { FakeModelProvider } from "./providers/fake";
 import { DEFAULT_SETTINGS, type FathomarkSettings, parseSettings } from "./settings";
@@ -16,12 +20,22 @@ export default class FathomarkPlugin extends Plugin {
   // shadowing it with a second field.
   override settings: FathomarkSettings = DEFAULT_SETTINGS;
   private harness!: AgentHarness;
+  private session!: RunSession;
+  private tracker!: EditorTargetTracker;
+  private styleStore!: SelectedStyleStore;
+  private previewController!: PreviewController;
 
   override async onload(): Promise<void> {
     this.settings = parseSettings(await this.loadData());
+    this.styleStore = new SelectedStyleStore(
+      async (selectedStyle) => this.updateSettings({ selectedStyle }),
+      this.settings.selectedStyle,
+    );
 
     const vault = new VaultAdapter(this.app);
-    const editor = new EditorAdapter(this.app);
+    this.tracker = new EditorTargetTracker(this.app);
+    this.previewController = new PreviewController(this.tracker);
+    const editor = new EditorAdapter(this.app, this.tracker);
     const tools = new ToolRegistry();
 
     /*
@@ -36,10 +50,20 @@ export default class FathomarkPlugin extends Plugin {
       permissions: { networkResearchEnabled: this.settings.networkResearchEnabled },
       model: this.settings.model,
     });
+    this.session = new RunSession(this.harness);
 
     this.registerView(
       CHAT_VIEW_TYPE,
-      (leaf: WorkspaceLeaf) => new ChatView(leaf, this.harness, editor, this.settings.model),
+      (leaf: WorkspaceLeaf) =>
+        new ChatView(
+          leaf,
+          this.harness,
+          this.session,
+          editor,
+          this.styleStore,
+          this.previewController,
+          this.settings.model,
+        ),
     );
 
     this.addRibbonIcon("sparkles", "Open Fathomark chat", () => {
@@ -73,6 +97,9 @@ export default class FathomarkPlugin extends Plugin {
   override onunload(): void {
     // Cancels any active run and drops every listener. Safe when idle.
     this.harness?.dispose();
+    this.session?.dispose();
+    this.tracker?.dispose();
+    this.previewController?.dispose();
   }
 
   async updateSettings(patch: Partial<FathomarkSettings>): Promise<void> {

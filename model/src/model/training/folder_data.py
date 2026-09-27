@@ -5,7 +5,7 @@ import json
 import random
 import re
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 
 from model.evaluation.case import EvaluationCase
 from model.training.corpus import Document
@@ -190,9 +190,13 @@ def prepare_folder_data(
                         source_text=source,
                         style=style,
                         expected_facts=tuple(facts),
+                        schema_version=2,
+                        literal_facts=tuple(
+                            dict.fromkeys(re.findall(r"\S*\d\S*", passage))
+                        ),
                     )
                     record = {
-                        **asdict(case),
+                        **case.to_dict(),
                         **provenance,
                         "provenance": "auto_derived_unreviewed",
                         "target_review": None,

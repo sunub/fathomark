@@ -39,13 +39,23 @@ describe("panel store", () => {
     expect(state.error).toBe("Provider unreachable.")
   })
 
-  it("clears the previous answer only when a new run starts", () => {
+  it("clears the previous answer only when run_started arrives", () => {
     const state = apply([
       { type: "text", runId, delta: "old" },
       { type: "state", runId, state: "complete" },
-      { type: "state", runId, state: "preparing_context" },
+      { type: "run_started", runId, question: "new", currentNote: null },
     ])
     expect(state.answer).toBe("")
     expect(state.error).toBeNull()
+  })
+
+  it("keeps the captured question and note through preparing_context", () => {
+    const note = { path: "A.md", title: "A", text: "selected", isSelection: true }
+    const state = apply([
+      { type: "run_started", runId, question: "질문", currentNote: note },
+      { type: "state", runId, state: "preparing_context" },
+    ])
+    expect(state.question).toBe("질문")
+    expect(state.currentNote).toEqual(note)
   })
 })

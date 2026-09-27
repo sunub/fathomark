@@ -12,6 +12,7 @@ from model.training.supervised import (
     ensure_disjoint,
     load_supervised,
     prepare_target_reviews,
+    source_fingerprint,
     target_fingerprint,
 )
 
@@ -158,6 +159,22 @@ class SupervisedTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "max_length"):
             build_supervised_samples(examples, Tokenizer(), max_length=5)
 
+    def test_v2_target_requires_literals_but_allows_reviewed_paraphrase(self):
+        data = row()
+        data.update(
+            schema_version=2,
+            expected_facts=["회의는 오후 두 시에 열린다."],
+            literal_facts=["2시"],
+            target_text="2시에 회의를 엽니다.",
+        )
+        data["target_review"]["target_sha256"] = target_fingerprint(
+            EvaluationCase.from_dict(data), data["target_text"]
+        )
+        self.assertEqual(self.load_rows([data])[0].target_text, "2시에 회의를 엽니다.")
+        data["target_text"] = "회의를 엽니다."
+        with self.assertRaisesRegex(ValueError, "literally"):
+            self.load_rows([data])
+
     def test_split_overlap_rejects_ids_sources_and_answers_but_allows_style(self):
         train = self.load_rows([row()])[0]
         validation = SupervisedExample(
@@ -199,3 +216,47 @@ class SupervisedTest(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 ensure_disjoint(*splits)
+
+    def test_rejects_cross_field_overlap_across_partitions(self):
+        train = SupervisedExample(
+            EvaluationCase("train", "q", "날짜: 금요일", "짧게", ("금요일",)),
+            "회의는 금요일입니다.",
+        )
+        valid = SupervisedExample(
+            EvaluationCase("valid", "q", "날짜: 토요일", "짧게", ("토요일",)),
+            "회의는 토요일입니다.",
+        )
+        evaluation = EvaluationCase("eval", "q", "날짜: 일요일", "짧게", ("일요일",))
+        mutations = (
+            (
+                [train],
+                [replace(valid, target_text=train.case.source_text)],
+                [evaluation],
+            ),
+            (
+                [train],
+                [
+                    replace(
+                        valid, case=replace(valid.case, source_text=train.target_text)
+                    )
+                ],
+                [evaluation],
+            ),
+            ([train], [valid], [replace(evaluation, source_text=train.target_text)]),
+            ([train], [valid], [replace(evaluation, source_text=valid.target_text)]),
+            (
+                [train],
+                [replace(valid, case=replace(valid.case, id=" TRAIN "))],
+                [evaluation],
+            ),
+        )
+        for splits in mutations:
+            with (
+                self.subTest(splits=splits),
+                self.assertRaisesRegex(ValueError, "overlap"),
+            ):
+                ensure_disjoint(*splits)
+        self.assertEqual(
+            source_fingerprint(" Room Ａ  opens Monday "),
+            source_fingerprint("room A opens monday"),
+        )

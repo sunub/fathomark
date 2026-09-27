@@ -6,42 +6,92 @@
  * slots: the state row, the budget bar, the composer, and the model line.
  */
 
-import { useEffect, useReducer, useState } from "react"
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 
-import { Alert, AlertDescription } from "@fathomark/design-system"
+import { Alert, AlertDescription, Button } from "@fathomark/design-system"
 
-import type { RunEvent } from "../harness/events"
+import type { RunSnapshot } from "../harness/events"
 import { isActive } from "../harness/run-state"
 import { BudgetBar } from "./panel/BudgetBar"
 import { Composer } from "./panel/Composer"
+import { ContextSummary } from "./panel/ContextSummary"
 import { Header } from "./panel/Header"
+import { InsertionPreviewPanel } from "./panel/InsertionPreview"
+import { Sources } from "./panel/Sources"
+import { StylePicker } from "./panel/StylePicker"
 import { Conversation } from "./screens/Conversation"
 import { INITIAL_PANEL_STATE, type PanelCommands, reduce } from "./state/panel-store"
 
 export interface AppProps {
-  /** Returns an unsubscribe function, which the effect below is required to call. */
-  readonly subscribe: (listener: (event: RunEvent) => void) => () => void
+  readonly getSnapshot: () => RunSnapshot
+  readonly subscribe: (listener: () => void) => () => void
   readonly commands: PanelCommands
   /** For the model status line. */
   readonly modelLabel: string
 }
 
-export function App({ subscribe, commands, modelLabel }: AppProps) {
-  const [state, dispatch] = useReducer(reduce, INITIAL_PANEL_STATE)
-  const [question, setQuestion] = useState<string | null>(null)
+export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) {
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const state = useMemo(
+    () => snapshot.events.reduce(reduce, { ...INITIAL_PANEL_STATE, runState: snapshot.state }),
+    [snapshot]
+  )
+  const [researchTopic, setResearchTopic] = useState("")
+  const [insertionPreview, setInsertionPreview] = useState<ReturnType<PanelCommands["previewAnswer"]>>(null)
+  const [insertionHandled, setInsertionHandled] = useState(false)
+  const runId = snapshot.events.find((event) => event.type === "run_started")?.runId ?? null
 
-  useEffect(() => subscribe(dispatch), [subscribe])
+  useEffect(() => {
+    setInsertionPreview(null)
+    setInsertionHandled(false)
+  }, [runId])
 
   return (
     <div className="tw:flex tw:h-full tw:flex-col">
       <Header runState={state.runState} elapsedMs={state.elapsedMs} />
 
       <Conversation
-        question={question}
+        question={state.question}
         answer={state.answer}
         activity={state.activity}
         streaming={isActive(state.runState)}
       />
+
+      <ContextSummary note={state.currentNote} />
+      <Sources
+        answer={state.answer}
+        evidence={state.evidence}
+        conflicts={state.conflicts}
+        openSource={commands.openSource}
+      />
+      <StylePicker
+        selectStyle={commands.selectStyle}
+        clearStyle={commands.clearStyle}
+        saveStyle={commands.saveStyle}
+      />
+      {state.answer && !insertionPreview && !insertionHandled && (
+        <div className="tw:px-3">
+          <Button size="sm" variant="outline" onClick={() => setInsertionPreview(commands.previewAnswer())}>
+            Preview answer insertion
+          </Button>
+        </div>
+      )}
+      {insertionPreview && (
+        <InsertionPreviewPanel
+          preview={insertionPreview}
+          busy={isActive(state.runState)}
+          approve={(id) => {
+            const next = commands.approveInsertion(id)
+            setInsertionHandled(next?.status === "applied")
+            setInsertionPreview(next?.status === "applied" ? null : next)
+          }}
+          discard={(id) => {
+            commands.discardInsertion(id)
+            setInsertionPreview(null)
+          }}
+          recreate={() => setInsertionPreview(commands.previewAnswer(true))}
+        />
+      )}
 
       <div className="tw:flex tw:shrink-0 tw:flex-col tw:gap-2 tw:px-3 tw:pt-2.5 tw:pb-3">
         {/*
@@ -59,12 +109,23 @@ export function App({ subscribe, commands, modelLabel }: AppProps) {
 
         <Composer
           runState={state.runState}
-          onAsk={(text) => {
-            setQuestion(text)
-            commands.ask(text)
-          }}
+          onAsk={commands.ask}
           onStop={commands.stop}
+          draft={snapshot.draft ?? ""}
+          onDraftChange={commands.setDraft}
         />
+
+        <label className="tw:flex tw:flex-col tw:gap-1 tw:text-fm-caption tw:text-fm-text-muted">
+          Public Wikipedia topic
+          <input
+            aria-label="Public Wikipedia topic"
+            value={researchTopic}
+            onChange={(event) => setResearchTopic(event.target.value)}
+            onBlur={() => commands.setResearchTopic(researchTopic, "en")}
+            className="tw:rounded-fm-control tw:border tw:border-fm-line tw:bg-transparent tw:px-2 tw:py-1"
+          />
+          <span>Only this exact text may be sent to Wikipedia.</span>
+        </label>
 
         <div className="tw:flex tw:items-center tw:gap-1.5 tw:font-fm-mono tw:text-fm-micro tw:text-fm-text-muted">
           <span className="tw:size-1.5 tw:rounded-full tw:bg-fm-ok" aria-hidden />
