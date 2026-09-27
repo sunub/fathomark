@@ -3,6 +3,15 @@ export interface EditorPosition {
   readonly ch: number
 }
 
+export interface EditorTarget {
+  readonly id: string
+  readonly path: string
+  readonly text: string
+  readonly selection: string
+  readonly from: EditorPosition
+  readonly to: EditorPosition
+}
+
 export interface InsertionPreview {
   readonly id: string
   readonly targetId: string

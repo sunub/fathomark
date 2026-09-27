@@ -29,6 +29,8 @@ export interface ExternalEvidenceReference {
   /** Canonical page URL, which is what the sources panel links to. */
   readonly url: string
   readonly excerpt: string
+  readonly pageId?: number
+  readonly language?: "ko" | "en"
 }
 
 export type EvidenceReference = VaultEvidenceReference | ExternalEvidenceReference
