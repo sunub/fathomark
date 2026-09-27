@@ -10,11 +10,9 @@ import { StrictMode } from "react"
 import { type Root, createRoot } from "react-dom/client"
 
 import type { AgentHarness } from "../harness/harness"
-import type { RunInput } from "../harness/harness"
 import type { RunSession } from "../harness/session"
 import type { SelectedStyleStore } from "../context/style"
 import { EditorAdapter } from "../obsidian/editor-adapter"
-import type { EditorTarget } from "../obsidian/editor-target"
 import type { PreviewController } from "../obsidian/insertion-preview"
 import { createResearchTopic } from "../tools/research-topic"
 import { App } from "../ui/App"
@@ -37,8 +35,6 @@ export class ChatView extends ItemView {
   }
 
   private researchTopic: ReturnType<typeof createResearchTopic> | null = null
-  private lastInput: RunInput | null = null
-  private lastTarget: EditorTarget | null = null
 
   override getViewType(): string {
     return CHAT_VIEW_TYPE
@@ -70,14 +66,14 @@ export class ChatView extends ItemView {
               if (this.harness.currentState() !== "idle" && !["complete", "incomplete", "cancelled", "failed"].includes(this.harness.currentState())) {
                 return { accepted: false, reason: "A run is already active." }
               }
-              this.lastTarget = this.editor.captureTarget()
-              const input: RunInput = {
+              const target = this.editor.captureTarget()
+              const input = {
                 question,
                 packet: {
                   systemInstructions:
                     "You answer from the user's Obsidian vault and cite the notes you used.",
-                  currentNote: this.lastTarget
-                    ? this.editor.noteFromTarget(this.lastTarget)
+                  currentNote: target
+                    ? this.editor.noteFromTarget(target)
                     : this.editor.currentNote(),
                   style: this.styleStore.get(),
                   researchTopic: this.researchTopic,
@@ -86,14 +82,15 @@ export class ChatView extends ItemView {
                   omitted: [],
                 },
               }
-              this.lastInput = input
+              this.session.rememberRequest(input, target)
               void this.harness.run(input)
               return { accepted: true }
             },
             stop: () => this.harness.cancel(),
             retry: async () => {
-              if (!this.lastInput) return { accepted: false, reason: "There is no run to retry." }
-              void this.harness.run(this.lastInput)
+              const request = this.session.lastRequest()
+              if (!request) return { accepted: false, reason: "There is no run to retry." }
+              void this.harness.run(request.input)
               return { accepted: true }
             },
             openSource: async (reference) => {
@@ -121,14 +118,17 @@ export class ChatView extends ItemView {
               if (!this.styleStore.get()) throw new Error("Select a style before saving it.")
               await this.styleStore.persist()
             },
-            previewAnswer: () => {
-              if (!this.lastTarget) return null
+            setDraft: (draft) => this.session.setDraft(draft),
+            previewAnswer: (recapture = false) => {
+              const request = this.session.lastRequest()
+              const target = recapture ? this.editor.captureTarget() : request?.target
+              if (!target) return null
               const answer = this.session
                 .getSnapshot()
                 .events.filter((event) => event.type === "text")
                 .map((event) => event.delta)
                 .join("")
-              return answer ? this.previewController.create(this.lastTarget, answer) : null
+              return answer ? this.previewController.create(target, answer) : null
             },
             approveInsertion: (id) => {
               this.previewController.approve(id)
