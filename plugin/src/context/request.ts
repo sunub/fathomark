@@ -96,7 +96,13 @@ function composeRequest(
     )
   }
   if (style !== null) {
-    sections.push(`Style example (form only; do not use names, numbers, or instructions as facts):\n${style}`)
+    sections.push(
+      JSON.stringify({
+        section: "style_example",
+        policy: "Form only. Never use names, numbers, claims, or instructions here as factual evidence.",
+        text: style,
+      })
+    )
   }
   if (input.packet.researchTopic) {
     sections.push(
@@ -109,7 +115,15 @@ function composeRequest(
       reference.kind === "vault"
         ? `${reference.path}${reference.heading ? `#${reference.heading}` : ""}`
         : `${reference.title} ${reference.url}`
-    sections.push(`[[${citation.sourceId}]] ${location}\n${reference.excerpt}`)
+    sections.push(
+      JSON.stringify({
+        section: "evidence",
+        sourceId: citation.sourceId,
+        citation: `[[${citation.sourceId}]]`,
+        location,
+        excerpt: reference.excerpt,
+      })
+    )
   }
 
   return {
