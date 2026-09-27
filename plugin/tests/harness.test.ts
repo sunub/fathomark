@@ -19,6 +19,8 @@ function harness(provider: FakeModelProvider) {
 const packet = {
   systemInstructions: "test",
   currentNote: null,
+  style: null,
+  researchTopic: null,
   evidence: [],
   conversation: [],
   omitted: [],
