@@ -1,9 +1,8 @@
 import { type App, MarkdownView, type WorkspaceLeaf } from "obsidian"
 
-export interface EditorPosition {
-  readonly line: number
-  readonly ch: number
-}
+import type { EditorPosition } from "../context/insertion"
+
+export type { EditorPosition } from "../context/insertion"
 
 export interface EditorTarget {
   readonly id: string
