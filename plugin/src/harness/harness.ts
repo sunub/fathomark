@@ -88,6 +88,7 @@ export class AgentHarness {
         ],
         tools: [],
         maxOutputTokens: this.options.limits.outputReserve,
+        contextWindow: this.options.limits.modelContext,
       }
 
       this.go(runId, "waiting_for_model")

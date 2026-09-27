@@ -7,6 +7,7 @@
  * src/harness rather than a rewrite of the panel.
  */
 
+import type { CurrentNoteContext } from "../context/packet"
 import type { EvidenceReference } from "../context/evidence"
 import type { RunState } from "./run-state"
 
@@ -14,6 +15,7 @@ import type { RunState } from "./run-state"
 export type RunId = string & { readonly __brand: "RunId" }
 
 export type RunEvent =
+  | { type: "run_started"; runId: RunId; question: string; currentNote: CurrentNoteContext | null }
   | { type: "state"; runId: RunId; state: RunState }
   /** One chunk of assistant prose. Never carries tool activity — see below. */
   | { type: "text"; runId: RunId; delta: string }
@@ -28,7 +30,8 @@ export type RunEvent =
   /** A tool that needs explicit approval before it runs. */
   | { type: "approval_required"; runId: RunId; callId: string; tool: string; explanation: string }
   /** Evidence entered the answer. The sources panel reads these. */
-  | { type: "evidence"; runId: RunId; reference: EvidenceReference }
+  | { type: "evidence"; runId: RunId; sourceId: string; reference: EvidenceReference }
+  | { type: "research_query"; runId: RunId; query: string; language: "ko" | "en" }
   /*
    * Both sides of a disagreement, never a resolution. PRODUCT.md principle 7:
    * the UI does not silently choose one.
@@ -59,3 +62,9 @@ export interface BudgetUsage {
 }
 
 export type RunEventListener = (event: RunEvent) => void
+
+export interface RunSnapshot {
+  readonly version: number
+  readonly state: RunState
+  readonly events: readonly RunEvent[]
+}
