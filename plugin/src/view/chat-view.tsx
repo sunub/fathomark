@@ -12,6 +12,7 @@ import { type Root, createRoot } from "react-dom/client"
 import type { AgentHarness } from "../harness/harness"
 import type { RunInput } from "../harness/harness"
 import type { RunSession } from "../harness/session"
+import type { SelectedStyleStore } from "../context/style"
 import { EditorAdapter } from "../obsidian/editor-adapter"
 import { createResearchTopic } from "../tools/research-topic"
 import { App } from "../ui/App"
@@ -26,6 +27,7 @@ export class ChatView extends ItemView {
     private readonly harness: AgentHarness,
     private readonly session: RunSession,
     private readonly editor: EditorAdapter,
+    private readonly styleStore: SelectedStyleStore,
     private readonly modelLabel: string
   ) {
     super(leaf)
@@ -70,7 +72,7 @@ export class ChatView extends ItemView {
                   systemInstructions:
                     "You answer from the user's Obsidian vault and cite the notes you used.",
                   currentNote: this.editor.currentNote(),
-                  style: null,
+                  style: this.styleStore.get(),
                   researchTopic: this.researchTopic,
                   evidence: [],
                   conversation: [],
@@ -96,6 +98,21 @@ export class ChatView extends ItemView {
             },
             setResearchTopic: (text, language) => {
               this.researchTopic = text.trim() ? createResearchTopic(text, language) : null
+            },
+            selectStyle: async () => {
+              const selection = this.editor.currentSelection()
+              if (!selection) throw new Error("Select a passage in a note first.")
+              this.harness.cancel()
+              this.styleStore.select(selection)
+            },
+            clearStyle: async () => {
+              this.harness.cancel()
+              this.styleStore.clear()
+              await this.styleStore.persist()
+            },
+            saveStyle: async () => {
+              if (!this.styleStore.get()) throw new Error("Select a style before saving it.")
+              await this.styleStore.persist()
             },
           }}
           modelLabel={this.modelLabel}
