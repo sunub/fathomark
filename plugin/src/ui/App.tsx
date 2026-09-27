@@ -6,7 +6,7 @@
  * slots: the state row, the budget bar, the composer, and the model line.
  */
 
-import { useMemo, useState, useSyncExternalStore } from "react"
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 
 import { Alert, AlertDescription, Button } from "@fathomark/design-system"
 
@@ -38,6 +38,13 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
   )
   const [researchTopic, setResearchTopic] = useState("")
   const [insertionPreview, setInsertionPreview] = useState<ReturnType<PanelCommands["previewAnswer"]>>(null)
+  const [insertionHandled, setInsertionHandled] = useState(false)
+  const runId = snapshot.events.find((event) => event.type === "run_started")?.runId ?? null
+
+  useEffect(() => {
+    setInsertionPreview(null)
+    setInsertionHandled(false)
+  }, [runId])
 
   return (
     <div className="tw:flex tw:h-full tw:flex-col">
@@ -62,7 +69,7 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
         clearStyle={commands.clearStyle}
         saveStyle={commands.saveStyle}
       />
-      {state.answer && !insertionPreview && (
+      {state.answer && !insertionPreview && !insertionHandled && (
         <div className="tw:px-3">
           <Button size="sm" variant="outline" onClick={() => setInsertionPreview(commands.previewAnswer())}>
             Preview answer insertion
@@ -73,8 +80,16 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
         <InsertionPreviewPanel
           preview={insertionPreview}
           busy={isActive(state.runState)}
-          approve={(id) => setInsertionPreview(commands.approveInsertion(id))}
-          discard={(id) => setInsertionPreview(commands.discardInsertion(id))}
+          approve={(id) => {
+            const next = commands.approveInsertion(id)
+            setInsertionHandled(next?.status === "applied")
+            setInsertionPreview(next?.status === "applied" ? null : next)
+          }}
+          discard={(id) => {
+            commands.discardInsertion(id)
+            setInsertionPreview(null)
+          }}
+          recreate={() => setInsertionPreview(commands.previewAnswer(true))}
         />
       )}
 
@@ -96,6 +111,8 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
           runState={state.runState}
           onAsk={commands.ask}
           onStop={commands.stop}
+          draft={snapshot.draft ?? ""}
+          onDraftChange={commands.setDraft}
         />
 
         <label className="tw:flex tw:flex-col tw:gap-1 tw:text-fm-caption tw:text-fm-text-muted">
