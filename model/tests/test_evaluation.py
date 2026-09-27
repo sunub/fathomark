@@ -19,6 +19,40 @@ class EvaluationCaseTest(unittest.TestCase):
 
         self.assertEqual(case.id, "ko-style-001")
         self.assertEqual(case.expected_facts, ("검색 기능을 개발 중이다",))
+        self.assertEqual(case.schema_version, 1)
+        self.assertIsNone(case.literal_facts)
+        self.assertEqual(
+            case.to_dict(),
+            {
+                "id": "ko-style-001",
+                "request": "짧게 정리해 줘.",
+                "source_text": "검색 기능을 개발 중이다.",
+                "style": "짧고 차분하게 쓴다.",
+                "expected_facts": ["검색 기능을 개발 중이다"],
+            },
+        )
+
+    def test_v2_requires_explicit_literals_and_rejects_ambiguous_versions(self):
+        base = {
+            "id": "v2",
+            "request": "요청",
+            "source_text": "회의는 금요일에 열린다.",
+            "style": "짧게",
+            "expected_facts": ["회의는 금요일에 열린다."],
+        }
+        case = EvaluationCase.from_dict(
+            {**base, "schema_version": 2, "literal_facts": ["금요일"]}
+        )
+        self.assertEqual(case.required_literals(), ("금요일",))
+        self.assertEqual(case.to_dict()["schema_version"], 2)
+        for invalid in (
+            {**base, "schema_version": 2},
+            {**base, "schema_version": 3, "literal_facts": []},
+            {**base, "schema_version": True, "literal_facts": []},
+            {**base, "literal_facts": ["금요일"]},
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                EvaluationCase.from_dict(invalid)
 
     def test_from_dict_rejects_missing_style(self) -> None:
         with self.assertRaisesRegex(TypeError, "style must be a string"):

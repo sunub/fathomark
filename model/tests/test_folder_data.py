@@ -48,8 +48,25 @@ class FolderDataTest(unittest.TestCase):
                 self.assertEqual(record["provenance"], "auto_derived_unreviewed")
                 self.assertIsNone(record["target_review"])
                 self.assertNotIn("grounding_passed", record)
+                self.assertEqual(record["schema_version"], 2)
+                self.assertIn("literal_facts", record)
                 json.dumps(record)
         self.assertNotIn("target_text", result.records["evaluation"][0])
+
+    def test_folder_v2_literals_keep_numeric_tokens_only(self):
+        passage = "Meeting on 2026-10-03 at 14:00 costs 500원. Friendly ending."
+        result = prepare_folder_data(
+            {"train": [doc("a", passage)]},
+            lambda _: json.dumps(
+                {"facts": ["Meeting on 2026-10-03 at 14:00 costs 500원."]}
+            ),
+        )
+        case = result.training[0].case
+        self.assertEqual(case.schema_version, 2)
+        self.assertEqual(case.literal_facts, ("2026-10-03", "14:00", "500원."))
+        self.assertEqual(
+            case.expected_facts, ("Meeting on 2026-10-03 at 14:00 costs 500원.",)
+        )
 
     def test_segments_stay_in_the_document_split_and_preserve_original_text(self):
         splits = {

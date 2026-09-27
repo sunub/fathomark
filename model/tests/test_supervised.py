@@ -159,6 +159,22 @@ class SupervisedTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "max_length"):
             build_supervised_samples(examples, Tokenizer(), max_length=5)
 
+    def test_v2_target_requires_literals_but_allows_reviewed_paraphrase(self):
+        data = row()
+        data.update(
+            schema_version=2,
+            expected_facts=["회의는 오후 두 시에 열린다."],
+            literal_facts=["2시"],
+            target_text="2시에 회의를 엽니다.",
+        )
+        data["target_review"]["target_sha256"] = target_fingerprint(
+            EvaluationCase.from_dict(data), data["target_text"]
+        )
+        self.assertEqual(self.load_rows([data])[0].target_text, "2시에 회의를 엽니다.")
+        data["target_text"] = "회의를 엽니다."
+        with self.assertRaisesRegex(ValueError, "literally"):
+            self.load_rows([data])
+
     def test_split_overlap_rejects_ids_sources_and_answers_but_allows_style(self):
         train = self.load_rows([row()])[0]
         validation = SupervisedExample(
