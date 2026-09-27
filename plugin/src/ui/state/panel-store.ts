@@ -57,7 +57,8 @@ export interface PanelCommands {
   selectStyle(): Promise<void>
   clearStyle(): Promise<void>
   saveStyle(): Promise<void>
-  previewAnswer(): InsertionPreview | null
+  setDraft(draft: string): void
+  previewAnswer(recapture?: boolean): InsertionPreview | null
   approveInsertion(id: string): InsertionPreview | null
   discardInsertion(id: string): InsertionPreview | null
 }
@@ -72,10 +73,7 @@ export function reduce(state: PanelState, event: RunEvent): PanelState {
       }
 
     case "state":
-      // A new run clears the previous answer; nothing else does.
-      return event.state === "preparing_context"
-        ? { ...INITIAL_PANEL_STATE, runState: event.state }
-        : { ...state, runState: event.state }
+      return { ...state, runState: event.state }
 
     case "text":
       return { ...state, answer: state.answer + event.delta }
