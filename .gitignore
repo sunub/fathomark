@@ -10,6 +10,24 @@
 node_modules/
 .pnpm-store/
 
+# --- local secrets and environments -------------------------------------------
+.env
+.env.*
+!.env.example
+.venv/
+
+# --- generated caches and build output ----------------------------------------
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+**/build/
+**/dist/
+**/wheels/
+**/*.egg-info/
+**/*.tsbuildinfo
+
 # --- tooling ------------------------------------------------------------------
 *.log
 .DS_Store
