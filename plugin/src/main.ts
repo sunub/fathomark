@@ -6,6 +6,7 @@ import { SelectedStyleStore } from "./context/style";
 import { PROPOSED_LIMITS } from "./harness/budget";
 import { EditorAdapter } from "./obsidian/editor-adapter";
 import { EditorTargetTracker } from "./obsidian/editor-target";
+import { PreviewController } from "./obsidian/insertion-preview";
 import { VaultAdapter } from "./obsidian/vault-adapter";
 import { FakeModelProvider } from "./providers/fake";
 import { DEFAULT_SETTINGS, type FathomarkSettings, parseSettings } from "./settings";
@@ -22,6 +23,7 @@ export default class FathomarkPlugin extends Plugin {
   private session!: RunSession;
   private tracker!: EditorTargetTracker;
   private styleStore!: SelectedStyleStore;
+  private previewController!: PreviewController;
 
   override async onload(): Promise<void> {
     this.settings = parseSettings(await this.loadData());
@@ -32,6 +34,7 @@ export default class FathomarkPlugin extends Plugin {
 
     const vault = new VaultAdapter(this.app);
     this.tracker = new EditorTargetTracker(this.app);
+    this.previewController = new PreviewController(this.tracker);
     const editor = new EditorAdapter(this.app, this.tracker);
     const tools = new ToolRegistry();
 
@@ -58,6 +61,7 @@ export default class FathomarkPlugin extends Plugin {
           this.session,
           editor,
           this.styleStore,
+          this.previewController,
           this.settings.model,
         ),
     );
@@ -95,6 +99,7 @@ export default class FathomarkPlugin extends Plugin {
     this.harness?.dispose();
     this.session?.dispose();
     this.tracker?.dispose();
+    this.previewController?.dispose();
   }
 
   async updateSettings(patch: Partial<FathomarkSettings>): Promise<void> {
