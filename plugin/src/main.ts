@@ -2,6 +2,7 @@ import { Plugin, type WorkspaceLeaf } from "obsidian";
 
 import { AgentHarness } from "./harness/harness";
 import { RunSession } from "./harness/session";
+import { SelectedStyleStore } from "./context/style";
 import { PROPOSED_LIMITS } from "./harness/budget";
 import { EditorAdapter } from "./obsidian/editor-adapter";
 import { EditorTargetTracker } from "./obsidian/editor-target";
@@ -20,9 +21,14 @@ export default class FathomarkPlugin extends Plugin {
   private harness!: AgentHarness;
   private session!: RunSession;
   private tracker!: EditorTargetTracker;
+  private styleStore!: SelectedStyleStore;
 
   override async onload(): Promise<void> {
     this.settings = parseSettings(await this.loadData());
+    this.styleStore = new SelectedStyleStore(
+      async (selectedStyle) => this.updateSettings({ selectedStyle }),
+      this.settings.selectedStyle,
+    );
 
     const vault = new VaultAdapter(this.app);
     this.tracker = new EditorTargetTracker(this.app);
@@ -46,7 +52,14 @@ export default class FathomarkPlugin extends Plugin {
     this.registerView(
       CHAT_VIEW_TYPE,
       (leaf: WorkspaceLeaf) =>
-        new ChatView(leaf, this.harness, this.session, editor, this.settings.model),
+        new ChatView(
+          leaf,
+          this.harness,
+          this.session,
+          editor,
+          this.styleStore,
+          this.settings.model,
+        ),
     );
 
     this.addRibbonIcon("sparkles", "Open Fathomark chat", () => {
