@@ -58,3 +58,24 @@ export function dedupe(references: readonly EvidenceReference[]): EvidenceRefere
   }
   return [...seen.values()]
 }
+
+export function registerEvidence(
+  existing: readonly CitedEvidence[],
+  incoming: readonly EvidenceReference[]
+): CitedEvidence[] {
+  const registered = [...existing]
+  const byKey = new Map(registered.map((item) => [referenceKey(item.reference), item]))
+  let next = registered.reduce((highest, item) => {
+    const match = /^S(\d+)$/.exec(item.sourceId)
+    return match ? Math.max(highest, Number(match[1])) : highest
+  }, 0) + 1
+
+  for (const reference of incoming) {
+    const key = referenceKey(reference)
+    if (byKey.has(key)) continue
+    const item = { sourceId: `S${next++}`, reference }
+    registered.push(item)
+    byKey.set(key, item)
+  }
+  return registered
+}
