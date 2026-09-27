@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { z } from "zod"
 
 import { ToolRegistry } from "../src/tools/registry"
+import { registerVaultTools } from "../src/tools/vault-tools"
 
 describe("product contracts", () => {
   it("registry schemas describe the same accepted input", () => {
@@ -35,5 +36,22 @@ describe("product contracts", () => {
       required: ["query"],
       additionalProperties: false,
     })
+  })
+
+  it("vault tool schemas stay strict and expose their required fields", () => {
+    const registry = new ToolRegistry()
+    registerVaultTools(registry, { listNotes: () => [], readNote: async () => null })
+
+    const search = registry.get("search_vault")!
+    const read = registry.get("read_note")!
+    expect(search.input.safeParse({ query: "노트" }).success).toBe(true)
+    expect(search.input.safeParse({ query: "노트", extra: true }).success).toBe(false)
+    expect(search.parameters).toMatchObject({ required: ["query"], additionalProperties: false })
+    expect(read.parameters).toMatchObject({ required: ["path"], additionalProperties: false })
+    const pathSchema = (read.parameters.properties as Record<string, { pattern?: string }>).path
+    const pattern = new RegExp(pathSchema?.pattern ?? "")
+    expect(pattern.test("Notes/Safe.md")).toBe(true)
+    expect(pattern.test("../secret.md")).toBe(false)
+    expect(pattern.test("image.png")).toBe(false)
   })
 })
