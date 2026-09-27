@@ -3,6 +3,7 @@ import type { ModelToolCall } from "../providers/types"
 import type { ToolExecutionContext } from "../tools/registry"
 import type { ToolRegistry } from "../tools/registry"
 import { decide, type PermissionContext } from "./policy"
+import { raceWithSignal } from "./abort"
 
 export type ToolExecutionErrorCode =
   | "unknown_tool"
@@ -45,7 +46,9 @@ export async function executeTool(
   }, tool.timeoutMs)
   const signal = AbortSignal.any([context.signal, timeoutController.signal])
   try {
-    const output = await tool.run(input.data, { ...context, signal })
+    signal.throwIfAborted()
+    const output = await raceWithSignal(tool.run(input.data, { ...context, signal }), signal)
+    signal.throwIfAborted()
     const parsed = tool.output.safeParse(output)
     if (!parsed.success) {
       throw new ToolExecutionError("invalid_output", `Invalid ${tool.name} output: ${parsed.error.message}`)

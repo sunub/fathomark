@@ -41,6 +41,12 @@ export type RunEvent =
   /** Actionable and persistent. Never a toast, and never disables the composer. */
   | { type: "error"; runId: RunId; message: string; recoverable: boolean }
   | { type: "usage"; runId: RunId; elapsedMs: number; tokens: number }
+  | {
+      type: "run_completed"
+      runId: RunId
+      outcome: "complete" | "incomplete" | "cancelled" | "failed"
+      reason: string
+    }
 
 export interface EvidenceConflictClaim {
   readonly claim: string
@@ -67,4 +73,5 @@ export interface RunSnapshot {
   readonly version: number
   readonly state: RunState
   readonly events: readonly RunEvent[]
+  readonly draft?: string
 }

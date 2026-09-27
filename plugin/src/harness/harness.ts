@@ -20,6 +20,7 @@ import { type BudgetLimits, emptyUsage } from "./budget"
 import type { RunEvent, RunEventListener, RunId } from "./events"
 import { CallLimiter, type PermissionContext } from "./policy"
 import { type RunState, isActive, transition } from "./run-state"
+import { raceWithSignal } from "./abort"
 
 export interface HarnessOptions {
   readonly provider: ModelProvider
@@ -106,7 +107,12 @@ export class AgentHarness {
 
       let sawOutput = false
       let completionReason: "stop" | "length" | "tool_calls" | null = null
-      for await (const event of this.options.provider.stream(request, controller.signal)) {
+      const stream = this.options.provider.stream(request, controller.signal)
+      const iterator = stream[Symbol.asyncIterator]()
+      while (true) {
+        const next = await raceWithSignal(iterator.next(), controller.signal)
+        if (next.done) break
+        const event = next.value
         switch (event.type) {
           case "text":
             if (!sawOutput) {

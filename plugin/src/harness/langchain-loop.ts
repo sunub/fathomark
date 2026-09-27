@@ -6,6 +6,7 @@ import type { BudgetLimits } from "./budget"
 import type { RunEvent, RunId } from "./events"
 import type { RunInput } from "./harness"
 import type { PermissionContext } from "./policy"
+import { raceWithSignal } from "./abort"
 import { executeTool, ToolExecutionError } from "./tool-executor"
 
 const MAX_MODEL_ROUNDS = 8
@@ -60,7 +61,13 @@ export async function* runAgentLoop(
     const calls: ModelToolCall[] = []
     let assistantText = ""
     let sawDone = false
-    for await (const event of options.provider.stream(request, signal)) {
+    let doneReason: "stop" | "length" | "tool_calls" = "stop"
+    const stream = options.provider.stream(request, signal)
+    const iterator = stream[Symbol.asyncIterator]()
+    while (true) {
+      const next = await raceWithSignal(iterator.next(), signal)
+      if (next.done) break
+      const event = next.value
       signal.throwIfAborted()
       if (event.type === "text") {
         assistantText += event.delta
@@ -79,10 +86,19 @@ export async function* runAgentLoop(
         }
       } else {
         sawDone = true
+        doneReason = event.reason
       }
     }
     if (!sawDone) throw new Error("The model stream ended without a completion event.")
-    if (calls.length === 0) return
+    if (calls.length === 0) {
+      yield {
+        type: "run_completed",
+        runId,
+        outcome: doneReason === "length" ? "incomplete" : "complete",
+        reason: doneReason,
+      }
+      return
+    }
 
     history.push({ role: "assistant", content: assistantText, toolCalls: calls })
     let mayContinue = true
@@ -96,6 +112,7 @@ export async function* runAgentLoop(
             ? `${call.name} exceeded the limit of ${MAX_CALLS_PER_TOOL} calls.`
             : `This run exceeded the limit of ${MAX_CALLS_TOTAL} tool calls.`
         yield { type: "tool_failed", runId, callId: call.callId, reason }
+        yield { type: "run_completed", runId, outcome: "incomplete", reason: "tool_limit" }
         return
       }
 
@@ -150,7 +167,10 @@ export async function* runAgentLoop(
           mayContinue = false
         }
       }
-      if (!mayContinue) return
+      if (!mayContinue) {
+        yield { type: "run_completed", runId, outcome: "failed", reason: "tool_error" }
+        return
+      }
     }
   }
 
@@ -160,4 +180,5 @@ export async function* runAgentLoop(
     message: `The model reached the limit of ${MAX_MODEL_ROUNDS} rounds.`,
     recoverable: true,
   }
+  yield { type: "run_completed", runId, outcome: "failed", reason: "model_round_limit" }
 }

@@ -1,6 +1,8 @@
 import type { ConversationTurn } from "../context/packet"
+import type { EditorTarget } from "../context/insertion"
 import type { RunEvent, RunSnapshot } from "./events"
 import type { AgentHarness } from "./harness"
+import type { RunInput } from "./harness"
 
 const MAX_COMPLETED_CONVERSATIONS = 10
 
@@ -10,9 +12,10 @@ export class RunSession {
   private readonly completedHistory: ConversationTurn[] = []
   private readonly unsubscribeHarness: () => void
   private disposed = false
+  private request: { input: RunInput; target: EditorTarget | null } | null = null
 
   constructor(harness: AgentHarness) {
-    this.snapshot = { version: 0, state: harness.currentState(), events: [] }
+    this.snapshot = { version: 0, state: harness.currentState(), events: [], draft: "" }
     this.unsubscribeHarness = harness.subscribe((event) => this.receive(event))
   }
 
@@ -28,6 +31,20 @@ export class RunSession {
 
   history(): readonly ConversationTurn[] {
     return this.completedHistory
+  }
+
+  setDraft(draft: string): void {
+    if (this.disposed || draft === this.snapshot.draft) return
+    this.snapshot = { ...this.snapshot, version: this.snapshot.version + 1, draft }
+    this.notify()
+  }
+
+  rememberRequest(input: RunInput, target: EditorTarget | null): void {
+    this.request = { input, target }
+  }
+
+  lastRequest(): { input: RunInput; target: EditorTarget | null } | null {
+    return this.request
   }
 
   dispose(): void {
@@ -50,9 +67,13 @@ export class RunSession {
     }
 
     const state = event.type === "state" ? event.state : this.snapshot.state
-    this.snapshot = { version: this.snapshot.version + 1, state, events }
+    this.snapshot = { ...this.snapshot, version: this.snapshot.version + 1, state, events }
 
     if (event.type === "state" && event.state === "complete") this.rememberCompletedRun()
+    this.notify()
+  }
+
+  private notify(): void {
     for (const listener of this.listeners) listener()
   }
 
