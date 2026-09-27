@@ -11,6 +11,7 @@
 import { type App, MarkdownView } from "obsidian"
 
 import type { CurrentNoteContext } from "../context/packet"
+import type { EditorTargetTracker } from "./editor-target"
 
 export interface ApprovedInsertion {
   readonly path: string
@@ -20,9 +21,18 @@ export interface ApprovedInsertion {
 }
 
 export class EditorAdapter {
-  constructor(private readonly app: App) {}
+  constructor(private readonly app: App, private readonly tracker?: EditorTargetTracker) {}
 
   currentNote(): CurrentNoteContext | null {
+    const target = this.tracker?.capture()
+    if (target) {
+      return {
+        path: target.path,
+        title: target.path.split("/").at(-1)?.replace(/\.md$/i, "") ?? "Untitled",
+        text: target.selection || target.text,
+        isSelection: target.selection.length > 0,
+      }
+    }
     const view = this.app.workspace.getActiveViewOfType(MarkdownView)
     if (!view) return null
 
