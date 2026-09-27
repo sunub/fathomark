@@ -10,6 +10,7 @@
 import type { EvidenceReference } from "../../context/evidence"
 import type { CurrentNoteContext } from "../../context/packet"
 import type { BudgetUsage, EvidenceConflictClaim, RunEvent } from "../../harness/events"
+import type { InsertionPreview } from "../../context/insertion"
 import type { RunState } from "../../harness/run-state"
 
 export interface ToolActivity {
@@ -56,6 +57,9 @@ export interface PanelCommands {
   selectStyle(): Promise<void>
   clearStyle(): Promise<void>
   saveStyle(): Promise<void>
+  previewAnswer(): InsertionPreview | null
+  approveInsertion(id: string): InsertionPreview | null
+  discardInsertion(id: string): InsertionPreview | null
 }
 
 export function reduce(state: PanelState, event: RunEvent): PanelState {
