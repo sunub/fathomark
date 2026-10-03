@@ -26,6 +26,7 @@ export default class FathomarkPlugin extends Plugin {
   private previewController!: PreviewController;
 
   override async onload(): Promise<void> {
+    // plugin 에 등록되어 있는 기본적인 옵시디언 설정 값을 읽어오기
     this.settings = parseSettings(await this.loadData());
     this.styleStore = new SelectedStyleStore(
       async (selectedStyle) => this.updateSettings({ selectedStyle }),
