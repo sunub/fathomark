@@ -171,13 +171,15 @@ class FolderWorkflowTest(unittest.TestCase):
             root = temporary / "writing"
             self.preparation_documents(root)
             output = temporary / "prepared-run"
+            staging = temporary / ".prepared-run.preparing"
             model = MagicMock()
             model.config._commit_hash = "revision-1"
             observed_statuses = []
 
             def extract(model, tokenizer, prompt, **kwargs):
+                self.assertFalse(output.exists())
                 observed_statuses.append(
-                    json.loads((output / "run.json").read_text())["status"]
+                    json.loads((staging / "run.json").read_text())["status"]
                 )
                 if "STYLE_SOURCE_JSON: " in prompt:
                     return json.dumps(
@@ -276,12 +278,14 @@ class FolderWorkflowTest(unittest.TestCase):
             root = temporary / "writing"
             self.preparation_documents(root)
             output = temporary / "failed-preparation"
+            staging = temporary / ".failed-preparation.preparing"
             model = MagicMock()
             model.config._commit_hash = None
 
             def fail_after_start(*args, **kwargs):
+                self.assertFalse(output.exists())
                 self.assertEqual(
-                    json.loads((output / "run.json").read_text())["status"],
+                    json.loads((staging / "run.json").read_text())["status"],
                     "preparing",
                 )
                 return "not JSON"
@@ -328,6 +332,7 @@ class FolderWorkflowTest(unittest.TestCase):
             root = temporary / "writing"
             self.preparation_documents(root)
             output = temporary / "interrupted-preparation"
+            staging = temporary / ".interrupted-preparation.preparing"
             model = MagicMock()
             model.config._commit_hash = None
 
@@ -357,20 +362,13 @@ class FolderWorkflowTest(unittest.TestCase):
                 )
 
             original_replace = Path.replace
-            publications = 0
-            draft_names = {
-                "preparation.json",
-                "style-profile.draft.json",
-                "facts.draft.jsonl",
-                "automatic-checks.json",
-            }
+            interrupted = False
 
-            def interrupt_second_publication(path, target):
-                nonlocal publications
-                if target.name in draft_names:
-                    publications += 1
-                    if publications == 2:
-                        raise KeyboardInterrupt("simulated publication interrupt")
+            def interrupt_directory_publication(path, target):
+                nonlocal interrupted
+                if path.is_dir() and not interrupted:
+                    interrupted = True
+                    raise KeyboardInterrupt("simulated publication interrupt")
                 return original_replace(path, target)
 
             with (
@@ -381,7 +379,9 @@ class FolderWorkflowTest(unittest.TestCase):
                 patch(
                     "model.training.folder_workflow.generate_text", side_effect=extract
                 ),
-                patch.object(Path, "replace", new=interrupt_second_publication),
+                patch.object(
+                    type(staging), "replace", new=interrupt_directory_publication
+                ),
                 self.assertRaises(KeyboardInterrupt),
             ):
                 main(
