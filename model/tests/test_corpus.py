@@ -40,6 +40,49 @@ class CorpusTest(unittest.TestCase):
                 [document("a.MD", "first\nsecond"), document("nested/b.TXT", "third")],
             )
 
+    def test_load_excludes_explicit_relative_directory_before_reading(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "writing"
+            root.mkdir()
+            (root / "author.md").write_text("author voice", encoding="utf-8")
+            evaluation = root / "evaluation"
+            evaluation.mkdir()
+            (evaluation / "new-topic.md").write_text(
+                "held out voice", encoding="utf-8"
+            )
+            hidden = root / ".hidden"
+            hidden.mkdir()
+            (hidden / "note.md").write_text("hidden", encoding="utf-8")
+            outside = Path(temporary) / "outside"
+            outside.mkdir()
+            (outside / "linked.md").write_text("linked", encoding="utf-8")
+            (evaluation / "linked-dir").symlink_to(outside, target_is_directory=True)
+
+            self.assertEqual(
+                load_documents(
+                    root, excluded_relative_dirs=frozenset({"evaluation"})
+                ),
+                [document("author.md", "author voice")],
+            )
+            self.assertEqual(
+                load_documents(evaluation),
+                [document("new-topic.md", "held out voice")],
+            )
+
+            evaluation.rename(root / "evaluation-real")
+            (root / "evaluation").symlink_to(
+                root / "evaluation-real", target_is_directory=True
+            )
+            self.assertEqual(
+                load_documents(
+                    root, excluded_relative_dirs=frozenset({"evaluation"})
+                ),
+                [
+                    document("author.md", "author voice"),
+                    document("evaluation-real/new-topic.md", "held out voice"),
+                ],
+            )
+
     def test_invalid_folder_and_invalid_utf8_explain_failure(self):
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)

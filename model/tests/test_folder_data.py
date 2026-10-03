@@ -3,7 +3,11 @@ import json
 import unittest
 
 from model.training.corpus import Document
-from model.training.folder_data import prepare_folder_data, split_folder_documents
+from model.training.folder_data import (
+    prepare_folder_data,
+    split_folder_documents,
+    split_preparation_documents,
+)
 
 
 def doc(path, text):
@@ -25,6 +29,46 @@ class FolderDataTest(unittest.TestCase):
         self.assertEqual(len({d.path for group in first.values() for d in group}), 10)
         with self.assertRaisesRegex(ValueError, "3"):
             split_folder_documents(documents[:2])
+
+    def test_preparation_split_keeps_explicit_evaluation_isolated(self):
+        documents = [doc(f"{index}.md", f"Document {index}. Body.") for index in range(10)]
+        evaluation = [doc("evaluation/new-topic.md", "Held out topic. Fresh voice.")]
+
+        first = split_preparation_documents(documents, evaluation, seed=23)
+
+        self.assertEqual(
+            first,
+            split_preparation_documents(list(reversed(documents)), evaluation, seed=23),
+        )
+        self.assertEqual(first["evaluation"], evaluation)
+        self.assertEqual([len(first[name]) for name in first], [8, 2, 1])
+        self.assertNotEqual(
+            (first["train"], first["validation"]),
+            (
+                split_preparation_documents(documents, evaluation, seed=24)["train"],
+                split_preparation_documents(documents, evaluation, seed=24)[
+                    "validation"
+                ],
+            ),
+        )
+
+    def test_preparation_split_requires_distinct_nonoverlapping_groups(self):
+        first = doc("a.md", "First document.")
+        second = doc("b.md", "Second document.")
+        evaluation = doc("evaluation/c.md", "Evaluation document.")
+
+        for documents, held_out in (
+            ([], [evaluation]),
+            ([first], [evaluation]),
+            ([first, second], []),
+        ):
+            with self.subTest(documents=documents, held_out=held_out):
+                with self.assertRaises(ValueError):
+                    split_preparation_documents(documents, held_out)
+
+        duplicate = doc("evaluation/duplicate.md", "Ｆirst   DOCUMENT.")
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            split_preparation_documents([first, second], [duplicate])
 
     def test_original_targets_and_only_other_training_document_styles(self):
         splits = {
