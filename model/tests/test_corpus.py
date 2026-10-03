@@ -37,7 +37,14 @@ class CorpusTest(unittest.TestCase):
             (folder / "link-dir").symlink_to(root, target_is_directory=True)
             self.assertEqual(
                 load_documents(folder),
-                [document("a.MD", "first\nsecond"), document("nested/b.TXT", "third")],
+                [
+                    Document(
+                        "a.MD",
+                        "first\nsecond",
+                        hashlib.sha256(b"  first\r\nsecond  ").hexdigest(),
+                    ),
+                    document("nested/b.TXT", "third"),
+                ],
             )
 
     def test_load_excludes_explicit_relative_directory_before_reading(self):

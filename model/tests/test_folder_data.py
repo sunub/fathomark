@@ -4,10 +4,14 @@ import unittest
 
 from model.training.corpus import Document
 from model.training.folder_data import (
+    FactStatement,
+    StyleProfile,
+    fact_statements_from_rows,
     prepare_folder_data,
     prepare_folder_draft,
     split_folder_documents,
     split_preparation_documents,
+    style_profile_from_dict,
 )
 
 
@@ -42,6 +46,135 @@ def style_draft_response():
 
 
 class FolderDataTest(unittest.TestCase):
+    def test_public_style_validator_returns_immutable_profile(self):
+        data = {
+            "tone": ["차분하게 설명한다"],
+            "organization": ["핵심을 먼저 제시한다"],
+            "sentence_style": ["짧은 설명문을 사용한다"],
+            "formatting": ["필요할 때 목록을 사용한다"],
+        }
+
+        profile = style_profile_from_dict(
+            data,
+            (
+                "첫 번째 문서는 고유한 사실을 설명한다.",
+                "두 번째 문서는 별도의 근거를 제시한다.",
+            ),
+        )
+
+        self.assertEqual(
+            profile,
+            StyleProfile(
+                tone=("차분하게 설명한다",),
+                organization=("핵심을 먼저 제시한다",),
+                sentence_style=("짧은 설명문을 사용한다",),
+                formatting=("필요할 때 목록을 사용한다",),
+            ),
+        )
+
+    def test_public_style_validator_rejects_leakage_and_invalid_categories(self):
+        valid = {
+            "tone": ["차분하게 설명한다"],
+            "organization": ["핵심을 먼저 제시한다"],
+            "sentence_style": ["짧은 설명문을 사용한다"],
+            "formatting": ["필요할 때 목록을 사용한다"],
+        }
+        source = "Distinctive lengthy source phrase appears only in this passage."
+        invalid_cases = {
+            "URL": {**valid, "tone": ["https://example.com을 피한다"]},
+            "digit": {**valid, "tone": ["두 문장을 2개로 나눈다"]},
+            "inline code": {**valid, "tone": ["`call()` 표현을 쓴다"]},
+            "fenced code": {**valid, "tone": ["```python\ncall()\n```"]},
+            "long source phrase": {
+                **valid,
+                "tone": ["Distinctive lengthy source phrase"],
+            },
+            "nonempty": {**valid, "tone": []},
+            "duplicate": {
+                **valid,
+                "tone": ["차분하게 설명한다", "차분하게  설명한다"],
+            },
+        }
+
+        for reason, data in invalid_cases.items():
+            with (
+                self.subTest(reason=reason),
+                self.assertRaises((TypeError, ValueError)),
+            ):
+                style_profile_from_dict(data, (source,))
+
+    def test_public_fact_validator_derives_literals_and_immutable_statements(self):
+        passage = "페이지의 LCP는 5.3초로 측정되었다. 추가 설명이 이어진다."
+
+        statements = fact_statements_from_rows(
+            [
+                {
+                    "statement": "페이지의 LCP는 5.3초로 측정되었다.",
+                    "evidence_spans": ["페이지의 LCP는 5.3초로 측정되었다."],
+                    "required_literals": ["검토 파일의 값은 다시 계산된다"],
+                }
+            ],
+            passage,
+        )
+
+        self.assertEqual(
+            statements,
+            (
+                FactStatement(
+                    statement="페이지의 LCP는 5.3초로 측정되었다.",
+                    evidence_spans=("페이지의 LCP는 5.3초로 측정되었다.",),
+                    required_literals=("5.3초로",),
+                ),
+            ),
+        )
+
+    def test_public_fact_validator_rejects_invalid_grounding(self):
+        passage = "회의는 14:00에 시작한다. 안내 문장이 충분히 이어진다."
+        invalid_cases = {
+            "malformed": [{"statement": "회의는 14:00에 시작한다."}],
+            "nonliteral evidence": [
+                {
+                    "statement": "회의는 14:00에 시작한다.",
+                    "evidence_spans": ["존재하지 않는 근거"],
+                }
+            ],
+            "missing numeric context": [
+                {
+                    "statement": "회의가 시작된다.",
+                    "evidence_spans": ["회의는"],
+                }
+            ],
+            "numeric substring": [
+                {
+                    "statement": "회의는 114:00에 시작한다.",
+                    "evidence_spans": ["회의는 14:00에 시작한다."],
+                }
+            ],
+            "repeated statements": [
+                {
+                    "statement": "회의는 14:00에 시작한다.",
+                    "evidence_spans": ["회의는 14:00에 시작한다."],
+                },
+                {
+                    "statement": "회의는 14:00에 시작한다.",
+                    "evidence_spans": ["회의는 14:00에 시작한다."],
+                },
+            ],
+            "copy task": [
+                {
+                    "statement": "회의는 14:00에 시작한다. 안내 문장이 충분히 이어진다.",
+                    "evidence_spans": [passage],
+                }
+            ],
+        }
+
+        for reason, rows in invalid_cases.items():
+            with (
+                self.subTest(reason=reason),
+                self.assertRaises((TypeError, ValueError)),
+            ):
+                fact_statements_from_rows(rows, passage)
+
     def test_document_split_is_stable_and_normalizes_duplicates(self):
         documents = [doc(str(i), f"Document {i}. Body.") for i in range(10)]
         documents.append(doc("duplicate", "Ｄocument   0. BODY."))
