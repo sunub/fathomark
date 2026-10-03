@@ -47,9 +47,7 @@ class CorpusTest(unittest.TestCase):
             (root / "author.md").write_text("author voice", encoding="utf-8")
             evaluation = root / "evaluation"
             evaluation.mkdir()
-            (evaluation / "new-topic.md").write_text(
-                "held out voice", encoding="utf-8"
-            )
+            (evaluation / "new-topic.md").write_text("held out voice", encoding="utf-8")
             hidden = root / ".hidden"
             hidden.mkdir()
             (hidden / "note.md").write_text("hidden", encoding="utf-8")
@@ -59,9 +57,7 @@ class CorpusTest(unittest.TestCase):
             (evaluation / "linked-dir").symlink_to(outside, target_is_directory=True)
 
             self.assertEqual(
-                load_documents(
-                    root, excluded_relative_dirs=frozenset({"evaluation"})
-                ),
+                load_documents(root, excluded_relative_dirs=frozenset({"evaluation"})),
                 [document("author.md", "author voice")],
             )
             self.assertEqual(
@@ -74,9 +70,7 @@ class CorpusTest(unittest.TestCase):
                 root / "evaluation-real", target_is_directory=True
             )
             self.assertEqual(
-                load_documents(
-                    root, excluded_relative_dirs=frozenset({"evaluation"})
-                ),
+                load_documents(root, excluded_relative_dirs=frozenset({"evaluation"})),
                 [
                     document("author.md", "author voice"),
                     document("evaluation-real/new-topic.md", "held out voice"),

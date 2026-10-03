@@ -55,6 +55,21 @@ class FolderWorkflowTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
+    def preparation_documents(self, root):
+        root.mkdir()
+        for index in range(1, 4):
+            (root / f"author-{index}.md").write_text(
+                f"작성 문서 {index}은 핵심을 설명합니다. 부연 설명이 이어집니다.",
+                encoding="utf-8",
+            )
+        evaluation = root / "evaluation"
+        evaluation.mkdir()
+        for index in range(1, 4):
+            (evaluation / f"held-out-{index}.md").write_text(
+                f"평가 문서 {index}은 새 주제를 설명합니다. 별도 설명이 이어집니다.",
+                encoding="utf-8",
+            )
+
     def test_dry_run_needs_only_folder_and_no_model(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "writing"
@@ -68,6 +83,242 @@ class FolderWorkflowTest(unittest.TestCase):
             report = json.loads(out.getvalue())
             self.assertEqual(sum(report["documents"].values()), 4)
             self.assertEqual(list(Path(tmp).iterdir()), [root])
+
+    def test_prepare_folder_dry_run_separates_evaluation_without_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "writing"
+            self.preparation_documents(root)
+            with (
+                patch("model.training.folder_workflow.load_base_model") as loader,
+                contextlib.redirect_stdout(io.StringIO()) as out,
+            ):
+                main(["prepare-folder", "--input-dir", str(root), "--dry-run"])
+
+            loader.assert_not_called()
+            report = json.loads(out.getvalue())
+            self.assertEqual(
+                report["documents"], {"train": 2, "validation": 1, "evaluation": 3}
+            )
+            self.assertEqual(report["status"], "dry_run")
+            self.assertEqual(list(Path(tmp).iterdir()), [root])
+
+    def test_prepare_folder_rejects_invalid_layout_before_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            temporary = Path(tmp)
+            for label in ("missing", "empty", "symlink"):
+                with self.subTest(label=label):
+                    root = temporary / label
+                    root.mkdir()
+                    for index in range(2):
+                        (root / f"author-{index}.md").write_text(
+                            f"문서 {index}의 내용입니다.", encoding="utf-8"
+                        )
+                    if label == "empty":
+                        (root / "evaluation").mkdir()
+                    elif label == "symlink":
+                        actual = temporary / "actual-evaluation"
+                        actual.mkdir(exist_ok=True)
+                        (actual / "held-out.md").write_text(
+                            "평가 내용입니다.", encoding="utf-8"
+                        )
+                        (root / "evaluation").symlink_to(
+                            actual, target_is_directory=True
+                        )
+                    with (
+                        patch(
+                            "model.training.folder_workflow.load_base_model"
+                        ) as loader,
+                        self.assertRaises(ValueError),
+                    ):
+                        main(
+                            [
+                                "prepare-folder",
+                                "--input-dir",
+                                str(root),
+                                "--output-dir",
+                                str(temporary / f"run-{label}"),
+                            ]
+                        )
+                    loader.assert_not_called()
+
+    def test_prepare_folder_rejects_output_and_invalid_lengths_before_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            temporary = Path(tmp)
+            root = temporary / "writing"
+            self.preparation_documents(root)
+            existing = temporary / "existing"
+            existing.mkdir()
+            cases = (
+                ["--output-dir", str(existing)],
+                ["--output-dir", str(root / "generated")],
+                ["--dry-run", "--max-chars", "0"],
+                ["--dry-run", "--extraction-tokens", "0"],
+            )
+            for extra in cases:
+                with (
+                    self.subTest(extra=extra),
+                    patch("model.training.folder_workflow.load_base_model") as loader,
+                    self.assertRaises(ValueError),
+                ):
+                    main(["prepare-folder", "--input-dir", str(root), *extra])
+                loader.assert_not_called()
+
+    def test_prepare_folder_writes_review_drafts_without_training(self):
+        from unittest.mock import MagicMock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            temporary = Path(tmp)
+            root = temporary / "writing"
+            self.preparation_documents(root)
+            output = temporary / "prepared-run"
+            model = MagicMock()
+            model.config._commit_hash = "revision-1"
+            observed_statuses = []
+
+            def extract(model, tokenizer, prompt, **kwargs):
+                observed_statuses.append(
+                    json.loads((output / "run.json").read_text())["status"]
+                )
+                if "STYLE_SOURCE_JSON: " in prompt:
+                    return json.dumps(
+                        {
+                            "tone": ["차분하게 설명한다"],
+                            "organization": ["핵심을 먼저 제시한다"],
+                            "sentence_style": ["짧은 설명문을 사용한다"],
+                            "formatting": ["필요할 때 목록을 사용한다"],
+                        },
+                        ensure_ascii=False,
+                    )
+                passage = json.loads(prompt.rsplit("FACT_SOURCE_JSON: ", 1)[1])
+                evidence = passage.split(". ", 1)[0] + "."
+                return json.dumps(
+                    {
+                        "facts": [
+                            {
+                                "statement": evidence,
+                                "evidence_spans": [evidence],
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                )
+
+            with (
+                patch(
+                    "model.training.folder_workflow.load_base_model",
+                    return_value=(MagicMock(), model),
+                ),
+                patch(
+                    "model.training.folder_workflow.generate_text", side_effect=extract
+                ),
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=AssertionError("training must not run"),
+                ),
+                patch(
+                    "model.training.folder_workflow.TrainConfig",
+                    side_effect=AssertionError("training config must not be built"),
+                ),
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                main(
+                    [
+                        "prepare-folder",
+                        "--input-dir",
+                        str(root),
+                        "--output-dir",
+                        str(output),
+                        "--device",
+                        "cpu",
+                    ]
+                )
+
+            self.assertTrue(observed_statuses)
+            self.assertEqual(set(observed_statuses), {"preparing"})
+            run = json.loads((output / "run.json").read_text())
+            self.assertEqual(run["status"], "pending_preparation_review")
+            self.assertNotIn("candidate", run)
+            preparation = json.loads((output / "preparation.json").read_text())
+            self.assertEqual(preparation["schema_version"], 1)
+            self.assertEqual(preparation["semantic_review"], "pending")
+            self.assertEqual(preparation["extraction_revision"], "revision-1")
+            self.assertEqual(preparation["samples"]["evaluation"], 3)
+            profile = json.loads((output / "style-profile.draft.json").read_text())
+            self.assertEqual(profile["status"], "pending_review")
+            self.assertEqual(
+                set(profile["profile"]),
+                {"tone", "organization", "sentence_style", "formatting"},
+            )
+            facts = [
+                json.loads(line)
+                for line in (output / "facts.draft.jsonl").read_text().splitlines()
+            ]
+            self.assertEqual(len(facts), 6)
+            self.assertTrue(all(item["facts"] for item in facts))
+            checks = json.loads((output / "automatic-checks.json").read_text())
+            self.assertFalse(checks["automatic_checks_establish_semantic_approval"])
+            self.assertTrue(checks["checks"])
+            self.assertFalse((output / "candidate").exists())
+            self.assertFalse(any(output.glob("*.approved.*")))
+            self.assertFalse(any(output.glob("*.tmp")))
+            rendered = stdout.getvalue()
+            self.assertNotIn("작성 문서", rendered)
+            self.assertNotIn("차분하게 설명한다", rendered)
+            self.assertEqual(
+                json.loads(rendered)["status"], "pending_preparation_review"
+            )
+
+    def test_prepare_folder_failure_keeps_only_auditable_run_state(self):
+        from unittest.mock import MagicMock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            temporary = Path(tmp)
+            root = temporary / "writing"
+            self.preparation_documents(root)
+            output = temporary / "failed-preparation"
+            model = MagicMock()
+            model.config._commit_hash = None
+
+            def fail_after_start(*args, **kwargs):
+                self.assertEqual(
+                    json.loads((output / "run.json").read_text())["status"],
+                    "preparing",
+                )
+                return "not JSON"
+
+            with (
+                patch(
+                    "model.training.folder_workflow.load_base_model",
+                    return_value=(MagicMock(), model),
+                ),
+                patch(
+                    "model.training.folder_workflow.generate_text",
+                    side_effect=fail_after_start,
+                ),
+                self.assertRaises(ValueError),
+            ):
+                main(
+                    [
+                        "prepare-folder",
+                        "--input-dir",
+                        str(root),
+                        "--output-dir",
+                        str(output),
+                    ]
+                )
+
+            run = json.loads((output / "run.json").read_text())
+            self.assertEqual(run["status"], "preparation_failed")
+            self.assertTrue(run["error"])
+            for name in (
+                "preparation.json",
+                "style-profile.draft.json",
+                "facts.draft.jsonl",
+                "automatic-checks.json",
+            ):
+                self.assertFalse((output / name).exists())
+            self.assertFalse((output / "candidate").exists())
+            self.assertFalse(any(output.glob("*.tmp")))
 
     def test_auto_data_to_real_tiny_training_and_evaluation(self):
         from tokenizers import Tokenizer
