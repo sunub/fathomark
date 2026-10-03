@@ -1,0 +1,16 @@
+{
+  "status": "rejected",
+  "case_count": 3,
+  "failed_lora_cases": [
+    "folder-adb3f2a345d9b0c3a9c9f4a1a46ed112511b61e4b0453a78e418aa5591b9c011",
+    "folder-1dbe3d5bfba46663a3f80deb523deee70b16310ca38b977953970023617c767b",
+    "folder-32f82c274ee0ee79bb5b7e81c9957248e80a0bfb67a2b20dffda981cd73f883d"
+  ],
+  "eligible_comparison_count": 0,
+  "activated": false,
+  "input_sha256": "3207f789b1a184ce8744cb4a54a3ee514438d3b5948220ab1d2ff680f44673a7",
+  "output_sha256": {
+    "blind-comparisons.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "blind-mapping.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+  }
+}
