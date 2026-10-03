@@ -1,6 +1,6 @@
 # 평가 기준과 연결한 문체 학습
 
-## 1단계: 학습 전에 검토 자료만 준비
+## 1~2단계: 검토 자료 준비와 승인 봉인
 
 새 검토 우선 흐름은 학습을 시작하기 전에 문체 프로필과 사실 문장을 별도 산출물로
 만듭니다. 선택한 폴더 안에 `evaluation/` 하위 폴더를 만들고, 학습에 사용하지 않을
@@ -41,7 +41,56 @@ uv run python -m model.training prepare-folder \
 자동 검사는 원문 문자열과 구조를 확인할 뿐 의미가 정확하다는 사람의 승인을 대신하지
 않습니다. 출력에는 원문 구간과 문서 경로가 포함되므로 개인 자료처럼 로컬에서
 보관하세요. 이 단계는 LoRA를 학습하거나 `candidate/`를 만들지 않습니다.
-`approve-preparation`과 `train-prepared`는 후속 단계이며 아직 사용할 수 없습니다.
+초안을 복사해 검토용 파일을 만듭니다. 문체 프로필은 `profile`만 수정하고 최상위
+`status`를 `"approved"`로 바꿉니다. `schema_version`과 `source_documents`는
+초안 그대로 유지해야 합니다.
+
+```json
+{
+  "schema_version": 1,
+  "status": "approved",
+  "source_documents": [{"path": "article-1.md", "sha256": "..."}],
+  "profile": {
+    "tone": ["차분하고 직접적으로 설명한다"],
+    "organization": ["핵심을 먼저 제시한다"],
+    "sentence_style": ["짧은 설명문을 사용한다"],
+    "formatting": ["필요할 때 목록을 사용한다"]
+  }
+}
+```
+
+사실 파일은 모든 초안 행을 정확히 한 번씩 복사하고 각 행에
+`"review_status": "approved"`를 추가합니다. 수정 가능한 값은 `facts`뿐입니다.
+`id`, 분리 묶음, 출처 경로와 해시, 원문 구간 번호와 내용, 목표 답변은 바꾸면 안
+됩니다. `required_literals`는 승인 시 문장과 근거에서 다시 계산됩니다.
+
+```json
+{"id":"folder-...","split":"train","source_document":{"path":"article-1.md","sha256":"..."},"passage_index":0,"source_passage":"원문 구간","facts":[{"statement":"페이지의 LCP는 5.3초로 측정되었다.","evidence_spans":["LCP는 5.3초로"],"required_literals":["5.3초로"]}],"target_text":"원문 구간","review_status":"approved"}
+```
+
+검토가 끝나면 `model/`에서 승인 명령을 실행합니다.
+
+```bash
+uv run python -m model.training approve-preparation \
+  --run-dir "/absolute/path/to/prepared-run" \
+  --style-profile "/absolute/path/to/reviewed-style.json" \
+  --facts-file "/absolute/path/to/reviewed-facts.jsonl"
+```
+
+명령은 원본 문서와 1단계 산출물이 바뀌지 않았는지 다시 검사하고 다음 묶음을 한 번에
+공개합니다.
+
+- `approved/style-profile.approved.json`: 승인한 문체 프로필.
+- `approved/facts.approved.jsonl`: 초안 ID 순서로 정규화한 승인 사실.
+- `approved/approval.json`: 1단계 입력, 현재 문서 목록, 두 승인 파일의 SHA-256 봉인.
+
+성공하면 `run.json`은 `approved_for_training`이 됩니다. 같은 검토 파일로 다시 실행하면
+기존 봉인을 검증해 같은 결과를 반환하지만, 다른 검토 내용이나 수정된 승인 묶음은
+덮어쓰지 않고 거부합니다. 승인 파일에도 원문과 문서 경로가 포함되므로 전체 실행
+폴더를 개인 자료처럼 로컬에 보관하세요. 자동 검사는 사용자 승인의 의미적 정확성을
+증명하지 않습니다. 이 단계는 모델을 불러오거나 LoRA를 학습하지 않고,
+`candidate/`도 만들지 않습니다. `train-prepared`는 후속 단계이며 아직 사용할 수
+없습니다.
 
 ## 기본 사용: 문서 폴더만 지정
 
