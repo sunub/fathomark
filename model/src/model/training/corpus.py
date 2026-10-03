@@ -38,7 +38,9 @@ def load_documents(
     for value in excluded_relative_dirs:
         relative = Path(value)
         if relative.is_absolute() or not relative.parts or ".." in relative.parts:
-            raise ValueError(f"Excluded directory must be relative to the corpus: {value}")
+            raise ValueError(
+                f"Excluded directory must be relative to the corpus: {value}"
+            )
         excluded.add(relative.as_posix().rstrip("/"))
 
     def walk_error(error: OSError) -> None:

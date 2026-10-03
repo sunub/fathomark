@@ -2,6 +2,7 @@
 
 import json
 import math
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,8 +10,13 @@ import torch
 
 from model.evaluation.runner import build_prompt, validate_cases
 from model.training.base_model import DEFAULT_MODEL_NAME, load_base_model
-from model.training.corpus import load_documents
-from model.training.folder_data import prepare_folder_data, split_folder_documents
+from model.training.corpus import Document, load_documents
+from model.training.folder_data import (
+    prepare_folder_data,
+    prepare_folder_draft,
+    split_folder_documents,
+    split_preparation_documents,
+)
 from model.training.inference import generate_text
 from model.training.supervised import build_supervised_samples, ensure_disjoint
 from model.training.trainer import TrainConfig
@@ -38,12 +44,35 @@ def add_folder_command(commands):
     parser.add_argument("--alpha", type=float, default=16.0)
     parser.add_argument("--seed", type=int, default=42)
 
+    prepare = commands.add_parser(
+        "prepare-folder",
+        help="Create reviewable style and fact drafts without training",
+    )
+    prepare.add_argument("--input-dir", required=True, type=Path)
+    prepare.add_argument("--output-dir", type=Path)
+    prepare.add_argument("--dry-run", action="store_true")
+    prepare.add_argument("--model", default=DEFAULT_MODEL_NAME)
+    prepare.add_argument("--device", choices=["cpu", "cuda", "mps"])
+    prepare.add_argument("--max-chars", type=int, default=1200)
+    prepare.add_argument("--extraction-tokens", type=int, default=512)
+    prepare.add_argument("--seed", type=int, default=42)
+
 
 def _json(path, value):
     path.write_text(
         json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
     )
+
+
+def _json_text(value):
+    return json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+
+
+def _write_temporary(path, text):
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    return temporary
 
 
 def _filter_lengths(prepared, tokenizer, max_length):
@@ -87,6 +116,156 @@ def _filter_lengths(prepared, tokenizer, max_length):
         prepared.records[split] = [
             row for row in prepared.records[split] if row["id"] in accepted_ids
         ]
+
+
+def prepare_folder(args):
+    if min(args.max_chars, args.extraction_tokens) < 1:
+        raise ValueError("max-chars and extraction-tokens must be positive")
+
+    selected = args.input_dir.expanduser()
+    evaluation_dir = selected / "evaluation"
+    if evaluation_dir.is_symlink() or not evaluation_dir.is_dir():
+        raise ValueError("Folder preparation requires a real evaluation/ directory")
+
+    training_documents = load_documents(
+        selected, excluded_relative_dirs=frozenset({"evaluation"})
+    )
+    evaluation_documents = [
+        Document(
+            path=f"evaluation/{document.path}",
+            text=document.text,
+            sha256=document.sha256,
+        )
+        for document in load_documents(evaluation_dir)
+    ]
+    splits = split_preparation_documents(
+        training_documents, evaluation_documents, args.seed
+    )
+    summary = {
+        "documents": {name: len(documents) for name, documents in splits.items()},
+        "status": "dry_run" if args.dry_run else "preparing",
+    }
+    if args.dry_run:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return
+
+    if args.output_dir is None:
+        raise ValueError("--output-dir is required for preparation")
+    root = selected.resolve()
+    output = args.output_dir.expanduser().resolve()
+    if output == root or root in output.parents:
+        raise ValueError("Output directory must be outside the input folder")
+    if output.exists():
+        raise ValueError("Output directory already exists; choose a new directory")
+    output.mkdir(parents=True)
+    run = {
+        "schema_version": 1,
+        "command": "prepare-folder",
+        "input_dir": str(root),
+        "output_dir": str(output),
+        "model": args.model,
+        "device": args.device,
+        "max_chars": args.max_chars,
+        "extraction_tokens": args.extraction_tokens,
+        "seed": args.seed,
+        **summary,
+    }
+    _json(output / "run.json", run)
+    artifact_names = (
+        "preparation.json",
+        "style-profile.draft.json",
+        "facts.draft.jsonl",
+        "automatic-checks.json",
+    )
+    try:
+        torch.manual_seed(args.seed)
+        tokenizer, model = load_base_model(
+            args.model, torch.device(args.device) if args.device else None
+        )
+
+        def extract(prompt):
+            return generate_text(
+                model, tokenizer, prompt, max_new_tokens=args.extraction_tokens
+            )
+
+        prepared = prepare_folder_draft(splits, extract, args.max_chars)
+        manifest = {
+            split: [
+                {"path": document.path, "sha256": document.sha256}
+                for document in documents
+            ]
+            for split, documents in splits.items()
+        }
+        sample_counts = {
+            split: sum(item.split == split for item in prepared.facts)
+            for split in ("train", "validation", "evaluation")
+        }
+        artifacts = {
+            "preparation.json": _json_text(
+                {
+                    "schema_version": 1,
+                    "documents": manifest,
+                    "samples": sample_counts,
+                    "skipped": list(prepared.skipped),
+                    "automatic_checks_only": True,
+                    "semantic_review": "pending",
+                    "extraction_model": args.model,
+                    "extraction_revision": getattr(model.config, "_commit_hash", None),
+                }
+            ),
+            "style-profile.draft.json": _json_text(
+                {
+                    "schema_version": 1,
+                    "status": "pending_review",
+                    "source_documents": list(prepared.style_sources),
+                    "profile": asdict(prepared.style_profile),
+                }
+            ),
+            "facts.draft.jsonl": "".join(
+                json.dumps(asdict(item), ensure_ascii=False, allow_nan=False) + "\n"
+                for item in prepared.facts
+            ),
+            "automatic-checks.json": _json_text(
+                {
+                    "schema_version": 1,
+                    "automatic_checks_establish_semantic_approval": False,
+                    "checks": list(prepared.automatic_checks),
+                }
+            ),
+        }
+        temporary_paths = {
+            name: _write_temporary(output / name, text)
+            for name, text in artifacts.items()
+        }
+        for name, temporary in temporary_paths.items():
+            if name.endswith(".jsonl"):
+                for line in temporary.read_text(encoding="utf-8").splitlines():
+                    json.loads(line)
+            else:
+                json.loads(temporary.read_text(encoding="utf-8"))
+        for name in artifact_names:
+            temporary_paths[name].replace(output / name)
+        final_run = {**run, "status": "pending_preparation_review"}
+        _json(output / "run.json", final_run)
+        print(
+            json.dumps(
+                {
+                    "output": str(output),
+                    "status": "pending_preparation_review",
+                    "samples": sample_counts,
+                },
+                ensure_ascii=False,
+            )
+        )
+    except Exception as error:
+        for name in artifact_names:
+            (output / name).unlink(missing_ok=True)
+            (output / f".{name}.tmp").unlink(missing_ok=True)
+        _json(
+            output / "run.json",
+            {**run, "status": "preparation_failed", "error": str(error)},
+        )
+        raise
 
 
 def train_folder(args):
