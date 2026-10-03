@@ -1,16 +1,321 @@
 import contextlib
+import hashlib
 import io
 import json
 import re
+import stat
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from model.training.cli import main
+from model.training.cli import _parser, main
+from tests.test_preparation_review import PreparationFixture, _json_bytes
 
 
 class FolderWorkflowTest(unittest.TestCase):
+    def test_approve_preparation_parser_requires_only_review_paths(self):
+        parser = _parser()
+        required = [
+            "--run-dir",
+            "/tmp/run",
+            "--style-profile",
+            "/tmp/style.json",
+            "--facts-file",
+            "/tmp/facts.jsonl",
+        ]
+
+        args = parser.parse_args(["approve-preparation", *required])
+
+        self.assertEqual(args.command, "approve-preparation")
+        self.assertEqual(args.run_dir, Path("/tmp/run"))
+        self.assertEqual(args.style_profile, Path("/tmp/style.json"))
+        self.assertEqual(args.facts_file, Path("/tmp/facts.jsonl"))
+        for training_option in (
+            "model",
+            "device",
+            "epochs",
+            "rank",
+            "max_new_tokens",
+        ):
+            self.assertFalse(hasattr(args, training_option))
+        for omitted in ("--run-dir", "--style-profile", "--facts-file"):
+            incomplete = required.copy()
+            index = incomplete.index(omitted)
+            del incomplete[index : index + 2]
+            with (
+                self.subTest(omitted=omitted),
+                contextlib.redirect_stderr(io.StringIO()),
+                self.assertRaises(SystemExit),
+            ):
+                parser.parse_args(["approve-preparation", *incomplete])
+
+    def test_approve_preparation_seals_without_model_or_training(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            stage_one_names = (
+                "preparation.json",
+                "style-profile.draft.json",
+                "facts.draft.jsonl",
+                "automatic-checks.json",
+            )
+            stage_one_bytes = {
+                name: (fixture.run_dir / name).read_bytes() for name in stage_one_names
+            }
+            forbidden = AssertionError("approval must not load or train a model")
+            with (
+                patch(
+                    "model.training.folder_workflow.load_base_model",
+                    side_effect=forbidden,
+                ),
+                patch(
+                    "model.training.folder_workflow.generate_text",
+                    side_effect=forbidden,
+                ),
+                patch(
+                    "model.training.folder_workflow.TrainConfig",
+                    side_effect=forbidden,
+                ),
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=forbidden,
+                ),
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                main(
+                    [
+                        "approve-preparation",
+                        "--run-dir",
+                        str(fixture.run_dir),
+                        "--style-profile",
+                        str(fixture.reviewed_style_path),
+                        "--facts-file",
+                        str(fixture.reviewed_facts_path),
+                    ]
+                )
+
+            approved_dir = fixture.run_dir / "approved"
+            self.assertEqual(stat.S_IMODE(approved_dir.stat().st_mode), 0o700)
+            self.assertEqual(
+                {path.name for path in approved_dir.iterdir()},
+                {
+                    "style-profile.approved.json",
+                    "facts.approved.jsonl",
+                    "approval.json",
+                },
+            )
+            self.assertTrue(
+                all(
+                    stat.S_IMODE(path.stat().st_mode) == 0o600
+                    for path in approved_dir.iterdir()
+                )
+            )
+            self.assertTrue(
+                all(
+                    path.read_bytes().endswith(b"\n") for path in approved_dir.iterdir()
+                )
+            )
+            run = json.loads((fixture.run_dir / "run.json").read_text())
+            approval_bytes = (approved_dir / "approval.json").read_bytes()
+            self.assertEqual(run["status"], "approved_for_training")
+            self.assertEqual(run["approval_dir"], "approved")
+            self.assertEqual(
+                run["approval_sha256"], hashlib.sha256(approval_bytes).hexdigest()
+            )
+            self.assertFalse((fixture.run_dir / "candidate").exists())
+            self.assertEqual(
+                stage_one_bytes,
+                {
+                    name: (fixture.run_dir / name).read_bytes()
+                    for name in stage_one_names
+                },
+            )
+            rendered = stdout.getvalue()
+            self.assertNotIn("Alpha explains", rendered)
+            self.assertNotIn("Calm and direct", rendered)
+            self.assertEqual(json.loads(rendered)["status"], "approved_for_training")
+
+    def test_approve_preparation_is_atomic_and_recovers_after_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            staging = fixture.run_dir / ".approval.preparing"
+            approved_dir = fixture.run_dir / "approved"
+            original_replace = Path.replace
+
+            def interrupt_publication(path, target):
+                if path == staging and target == approved_dir:
+                    raise KeyboardInterrupt("before approval directory rename")
+                return original_replace(path, target)
+
+            with (
+                patch.object(type(staging), "replace", new=interrupt_publication),
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                self._approve_fixture(fixture)
+            self.assertFalse(staging.exists())
+            self.assertFalse(approved_dir.exists())
+            self.assertEqual(
+                json.loads((fixture.run_dir / "run.json").read_text())["status"],
+                "pending_preparation_review",
+            )
+
+            from model.training import folder_workflow
+
+            original_atomic_json = folder_workflow._atomic_json
+
+            def interrupt_status(path, value):
+                if value.get("status") == "approved_for_training":
+                    raise KeyboardInterrupt("after approval directory rename")
+                return original_atomic_json(path, value)
+
+            with (
+                patch(
+                    "model.training.folder_workflow._atomic_json",
+                    side_effect=interrupt_status,
+                ),
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                self._approve_fixture(fixture)
+            self.assertTrue(approved_dir.is_dir())
+            self.assertEqual(
+                json.loads((fixture.run_dir / "run.json").read_text())["status"],
+                "pending_preparation_review",
+            )
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                self._approve_fixture(fixture)
+            self.assertEqual(
+                json.loads((fixture.run_dir / "run.json").read_text())["status"],
+                "approved_for_training",
+            )
+
+    def test_approve_preparation_rerun_rejects_changed_or_tampered_seal(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            with contextlib.redirect_stdout(io.StringIO()):
+                self._approve_fixture(fixture)
+                self._approve_fixture(fixture)
+            approved_dir = fixture.run_dir / "approved"
+            original = {path.name: path.read_bytes() for path in approved_dir.iterdir()}
+
+            run_path = fixture.run_dir / "run.json"
+            run = json.loads(run_path.read_text())
+            run["approval_sha256"] = "0" * 64
+            run_path.write_bytes(_json_bytes(run))
+            with self.assertRaisesRegex(ValueError, "run.json disagrees"):
+                self._approve_fixture(fixture)
+            run["approval_sha256"] = hashlib.sha256(
+                original["approval.json"]
+            ).hexdigest()
+            run_path.write_bytes(_json_bytes(run))
+
+            fixture.reviewed_style["profile"]["tone"] = ["Quiet and concise"]
+            fixture.reviewed_style_path.write_bytes(_json_bytes(fixture.reviewed_style))
+            with self.assertRaisesRegex(ValueError, "different approval"):
+                self._approve_fixture(fixture)
+            self.assertEqual(
+                original,
+                {path.name: path.read_bytes() for path in approved_dir.iterdir()},
+            )
+
+            fixture.reviewed_style["profile"]["tone"] = ["Calm and direct"]
+            fixture.reviewed_style_path.write_bytes(_json_bytes(fixture.reviewed_style))
+            original_statement = fixture.reviewed_facts[0]["facts"][0]["statement"]
+            fixture.reviewed_facts[0]["facts"][0]["statement"] = (
+                "A reviewed fact remains supported."
+            )
+            fixture.write_reviewed_facts()
+            with self.assertRaisesRegex(ValueError, "different approval"):
+                self._approve_fixture(fixture)
+            fixture.reviewed_facts[0]["facts"][0]["statement"] = original_statement
+            fixture.write_reviewed_facts()
+            facts_path = approved_dir / "facts.approved.jsonl"
+            facts_path.write_bytes(facts_path.read_bytes() + b"\n")
+            with self.assertRaises(ValueError):
+                self._approve_fixture(fixture)
+
+    def test_approve_preparation_permission_failure_publishes_nothing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            staging = fixture.run_dir / ".approval.preparing"
+            original_chmod = Path.chmod
+
+            def deny_private_mode(path, mode, *args, **kwargs):
+                if path == staging:
+                    raise PermissionError("cannot set private approval mode")
+                return original_chmod(path, mode, *args, **kwargs)
+
+            with (
+                patch.object(type(staging), "chmod", new=deny_private_mode),
+                self.assertRaises(PermissionError),
+            ):
+                self._approve_fixture(fixture)
+            self.assertFalse(staging.exists())
+            self.assertFalse((fixture.run_dir / "approved").exists())
+            self.assertEqual(
+                json.loads((fixture.run_dir / "run.json").read_text())["status"],
+                "pending_preparation_review",
+            )
+
+    def test_approve_preparation_does_not_follow_run_temp_symlink(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            external = fixture.temporary / "external.json"
+            external.write_text("do not overwrite", encoding="utf-8")
+            run_temporary = fixture.run_dir / ".run.json.tmp"
+            run_temporary.symlink_to(external)
+
+            with self.assertRaisesRegex(ValueError, "must not be a symlink"):
+                self._approve_fixture(fixture)
+
+            self.assertEqual(external.read_text(), "do not overwrite")
+            self.assertTrue(run_temporary.is_symlink())
+            self.assertEqual(
+                json.loads((fixture.run_dir / "run.json").read_text())["status"],
+                "pending_preparation_review",
+            )
+
+    def test_approve_preparation_rejects_invalid_run_states_and_paths(self):
+        for status in (
+            "preparing",
+            "preparation_failed",
+            "future_state",
+            "approved_for_training",
+        ):
+            with (
+                tempfile.TemporaryDirectory() as temporary,
+                self.subTest(status=status),
+            ):
+                fixture = PreparationFixture(Path(temporary))
+                fixture.run["status"] = status
+                (fixture.run_dir / "run.json").write_bytes(_json_bytes(fixture.run))
+                with self.assertRaises(ValueError):
+                    self._approve_fixture(fixture)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            missing = fixture.temporary / "missing-run"
+            with self.assertRaises(ValueError):
+                self._approve_fixture(fixture, run_dir=missing)
+            actual = fixture.temporary / "actual-run"
+            fixture.run_dir.replace(actual)
+            fixture.run_dir.symlink_to(actual, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                self._approve_fixture(fixture)
+
+    def _approve_fixture(self, fixture, *, run_dir=None):
+        return main(
+            [
+                "approve-preparation",
+                "--run-dir",
+                str(run_dir or fixture.run_dir),
+                "--style-profile",
+                str(fixture.reviewed_style_path),
+                "--facts-file",
+                str(fixture.reviewed_facts_path),
+            ]
+        )
+
     def test_invalid_extraction_leaves_report_without_candidate(self):
         from unittest.mock import MagicMock
 
