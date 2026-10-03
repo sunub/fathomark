@@ -13,44 +13,44 @@
  * else: .dependency-cruiser.cjs enforces that.
  */
 
-import type { ContextPacket } from "../context/packet"
-import type { ModelProvider, ModelRequest } from "../providers/types"
-import type { ToolRegistry } from "../tools/registry"
-import { type BudgetLimits, emptyUsage } from "./budget"
-import type { RunEvent, RunEventListener, RunId } from "./events"
-import { CallLimiter, type PermissionContext } from "./policy"
-import { type RunState, isActive, transition } from "./run-state"
-import { raceWithSignal } from "./abort"
+import type { ContextPacket } from "../context/packet";
+import type { ModelProvider, ModelRequest } from "../providers/types";
+import type { ToolRegistry } from "../tools/registry";
+import { type BudgetLimits, emptyUsage } from "./budget";
+import type { RunEvent, RunEventListener, RunId } from "./events";
+import { CallLimiter, type PermissionContext } from "./policy";
+import { type RunState, isActive, transition } from "./run-state";
+import { raceWithSignal } from "./abort";
 
 export interface HarnessOptions {
-  readonly provider: ModelProvider
-  readonly tools: ToolRegistry
-  readonly limits: BudgetLimits
-  readonly permissions: PermissionContext
-  readonly model: string
-  readonly runTimeoutMs?: number
+  readonly provider: ModelProvider;
+  readonly tools: ToolRegistry;
+  readonly limits: BudgetLimits;
+  readonly permissions: PermissionContext;
+  readonly model: string;
+  readonly runTimeoutMs?: number;
 }
 
 export interface RunInput {
-  readonly question: string
-  readonly packet: ContextPacket
+  readonly question: string;
+  readonly packet: ContextPacket;
 }
 
 export class AgentHarness {
-  private state: RunState = "idle"
-  private controller: AbortController | null = null
-  private readonly listeners = new Set<RunEventListener>()
-  private runCounter = 0
+  private state: RunState = "idle";
+  private controller: AbortController | null = null;
+  private readonly listeners = new Set<RunEventListener>();
+  private runCounter = 0;
 
-  constructor(private readonly options: HarnessOptions) {}
+  constructor(private readonly options: HarnessOptions) { }
 
   currentState(): RunState {
-    return this.state
+    return this.state;
   }
 
   subscribe(listener: RunEventListener): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   /**
@@ -58,29 +58,29 @@ export class AgentHarness {
    * makes it safe to call from onunload unconditionally.
    */
   cancel(): void {
-    this.controller?.abort(new DOMException("Cancelled by the user.", "AbortError"))
+    this.controller?.abort(new DOMException("Cancelled by the user.", "AbortError"));
   }
 
   /** Releases every listener and stops any run. Called from the plugin's onunload. */
   dispose(): void {
-    this.cancel()
-    this.listeners.clear()
+    this.cancel();
+    this.listeners.clear();
   }
 
   async run(input: RunInput): Promise<void> {
     if (isActive(this.state)) {
-      throw new Error("A run is already active. Cancel it before starting another.")
+      throw new Error("A run is already active. Cancel it before starting another.");
     }
 
-    const runId = `run-${(++this.runCounter).toString(16).padStart(4, "0")}` as RunId
-    const controller = new AbortController()
-    this.controller = controller
-    const limiter = new CallLimiter()
-    const started = Date.now()
-    const timeoutMs = this.options.runTimeoutMs ?? 120_000
+    const runId = `run-${(++this.runCounter).toString(16).padStart(4, "0")}` as RunId;
+    const controller = new AbortController();
+    this.controller = controller;
+    const limiter = new CallLimiter();
+    const started = Date.now();
+    const timeoutMs = this.options.runTimeoutMs ?? 120_000;
     const timeout = setTimeout(() => {
-      controller.abort(new DOMException(`The run timed out after ${timeoutMs}ms.`, "TimeoutError"))
-    }, timeoutMs)
+      controller.abort(new DOMException(`The run timed out after ${timeoutMs}ms.`, "TimeoutError"));
+    }, timeoutMs);
 
     try {
       this.emit({
@@ -88,9 +88,9 @@ export class AgentHarness {
         runId,
         question: input.question,
         currentNote: input.packet.currentNote,
-      })
-      this.go(runId, "preparing_context")
-      this.emit({ type: "budget", runId, usage: emptyUsage(this.options.limits) })
+      });
+      this.go(runId, "preparing_context");
+      this.emit({ type: "budget", runId, usage: emptyUsage(this.options.limits) });
 
       const request: ModelRequest = {
         model: this.options.model,
@@ -101,26 +101,26 @@ export class AgentHarness {
         tools: [],
         maxOutputTokens: this.options.limits.outputReserve,
         contextWindow: this.options.limits.modelContext,
-      }
+      };
 
-      this.go(runId, "waiting_for_model")
+      this.go(runId, "waiting_for_model");
 
-      let sawOutput = false
-      let completionReason: "stop" | "length" | "tool_calls" | null = null
-      const stream = this.options.provider.stream(request, controller.signal)
-      const iterator = stream[Symbol.asyncIterator]()
+      let sawOutput = false;
+      let completionReason: "stop" | "length" | "tool_calls" | null = null;
+      const stream = this.options.provider.stream(request, controller.signal);
+      const iterator = stream[Symbol.asyncIterator]();
       while (true) {
-        const next = await raceWithSignal(iterator.next(), controller.signal)
-        if (next.done) break
-        const event = next.value
+        const next = await raceWithSignal(iterator.next(), controller.signal);
+        if (next.done) break;
+        const event = next.value;
         switch (event.type) {
           case "text":
             if (!sawOutput) {
-              sawOutput = true
-              this.go(runId, "streaming")
+              sawOutput = true;
+              this.go(runId, "streaming");
             }
-            this.emit({ type: "text", runId, delta: event.delta })
-            break
+            this.emit({ type: "text", runId, delta: event.delta });
+            break;
 
           case "tool_call": {
             /*
@@ -128,20 +128,20 @@ export class AgentHarness {
              * runs, and neither consults the model: is this tool registered at
              * all, and has this run already called it too often?
              */
-            const tool = this.options.tools.get(event.call.name)
+            const tool = this.options.tools.get(event.call.name);
             if (!tool) {
               this.emit({
                 type: "tool_failed",
                 runId,
                 callId: event.call.callId,
                 reason: `${event.call.name} is not a Fathomark tool.`,
-              })
-              break
+              });
+              break;
             }
-            const refusal = limiter.check(tool.name)
+            const refusal = limiter.check(tool.name);
             if (refusal) {
-              this.emit({ type: "tool_failed", runId, callId: event.call.callId, reason: refusal })
-              break
+              this.emit({ type: "tool_failed", runId, callId: event.call.callId, reason: refusal });
+              break;
             }
             this.emit({
               type: "tool_call",
@@ -149,61 +149,67 @@ export class AgentHarness {
               callId: event.call.callId,
               tool: tool.name,
               args: event.call.args,
-            })
-            break
+            });
+            break;
           }
 
           case "done":
-            completionReason = event.reason
-            this.go(runId, isActive(this.state) && this.state !== "streaming" ? "streaming" : this.state)
-            break
+            completionReason = event.reason;
+            this.go(
+              runId,
+              isActive(this.state) && this.state !== "streaming" ? "streaming" : this.state,
+            );
+            break;
         }
       }
 
       if (completionReason === null) {
-        throw new Error("The model stream ended without a completion event.")
+        throw new Error("The model stream ended without a completion event.");
       }
 
-      this.go(runId, "preparing_answer")
-      this.emit({ type: "usage", runId, elapsedMs: Date.now() - started, tokens: 0 })
-      this.go(runId, completionReason === "stop" ? "complete" : "incomplete")
+      this.go(runId, "preparing_answer");
+      this.emit({ type: "usage", runId, elapsedMs: Date.now() - started, tokens: 0 });
+      this.go(runId, completionReason === "stop" ? "complete" : "incomplete");
     } catch (error) {
       /*
        * Cancellation is an outcome, not a failure. Conflating them is how a
        * panel ends up showing a red error for a Stop the user pressed.
        */
-      if (controller.signal.reason instanceof DOMException && controller.signal.reason.name === "TimeoutError") {
+      if (
+        controller.signal.reason instanceof DOMException &&
+        controller.signal.reason.name === "TimeoutError"
+      ) {
         this.emit({
           type: "error",
           runId,
           message: controller.signal.reason.message,
           recoverable: true,
-        })
-        this.go(runId, "failed")
+        });
+        this.go(runId, "failed");
       } else if (controller.signal.aborted) {
-        this.go(runId, "cancelled")
+        this.go(runId, "cancelled");
       } else {
         this.emit({
           type: "error",
           runId,
           message: error instanceof Error ? error.message : String(error),
           recoverable: true,
-        })
-        this.go(runId, "failed")
+        });
+        this.go(runId, "failed");
       }
     } finally {
-      clearTimeout(timeout)
-      this.controller = null
+      clearTimeout(timeout);
+      this.controller = null;
     }
   }
 
   private go(runId: RunId, next: RunState): void {
-    if (next === this.state) return
-    this.state = transition(this.state, next)
-    this.emit({ type: "state", runId, state: this.state })
+    if (next === this.state) return;
+    this.state = transition(this.state, next);
+    this.emit({ type: "state", runId, state: this.state });
   }
 
   private emit(event: RunEvent): void {
-    for (const listener of this.listeners) listener(event)
+    for (const listener of this.listeners) listener(event);
   }
 }
