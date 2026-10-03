@@ -1,0 +1,10 @@
+{
+  "documents": {
+    "train": 27,
+    "validation": 8,
+    "evaluation": 8
+  },
+  "training_data_status": "auto_derived_unreviewed",
+  "status": "failed",
+  "error": "validation must be nonempty"
+}
