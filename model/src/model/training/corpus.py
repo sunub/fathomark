@@ -21,7 +21,9 @@ class Tokenizer(Protocol):
     def encode(self, text: str, *, add_special_tokens: bool) -> list[int]: ...
 
 
-def load_documents(folder: Path) -> list[Document]:
+def load_documents(
+    folder: Path, *, excluded_relative_dirs: frozenset[str] = frozenset()
+) -> list[Document]:
     """Load unique UTF-8 Markdown/text documents without following symlinks.
 
     Paths in the result are relative to the explicitly selected folder. Hidden
@@ -32,6 +34,12 @@ def load_documents(folder: Path) -> list[Document]:
         raise ValueError(
             f"Corpus folder must be an existing non-symlink directory: {folder}"
         )
+    excluded = set()
+    for value in excluded_relative_dirs:
+        relative = Path(value)
+        if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+            raise ValueError(f"Excluded directory must be relative to the corpus: {value}")
+        excluded.add(relative.as_posix().rstrip("/"))
 
     def walk_error(error: OSError) -> None:
         raise ValueError(f"Cannot read corpus folder: {error}") from error
@@ -41,10 +49,13 @@ def load_documents(folder: Path) -> list[Document]:
         folder, followlinks=False, onerror=walk_error
     ):
         directory = Path(directory)
+        relative_directory = directory.relative_to(folder)
         directories[:] = sorted(
             name
             for name in directories
-            if not name.startswith(".") and not (directory / name).is_symlink()
+            if not name.startswith(".")
+            and not (directory / name).is_symlink()
+            and (relative_directory / name).as_posix() not in excluded
         )
         paths.extend(
             directory / name

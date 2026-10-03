@@ -46,6 +46,43 @@ def split_folder_documents(
     }
 
 
+def split_preparation_documents(
+    training_documents: list[Document],
+    evaluation_documents: list[Document],
+    seed: int = 42,
+) -> dict[str, list[Document]]:
+    """Split normal documents while preserving an explicit evaluation group."""
+    if len(training_documents) < 2:
+        raise ValueError("Folder preparation requires at least 2 training documents")
+    if not evaluation_documents:
+        raise ValueError("Folder preparation requires evaluation documents")
+
+    seen: dict[str, str] = {}
+    for document in [*training_documents, *evaluation_documents]:
+        normalized = _normalize(document.text)
+        if not normalized:
+            raise ValueError(f"Document must contain text: {document.path}")
+        if normalized in seen:
+            raise ValueError(
+                "duplicate normalized document across preparation groups: "
+                f"{seen[normalized]} and {document.path}"
+            )
+        seen[normalized] = document.path
+
+    shuffled = sorted(
+        training_documents, key=lambda item: (item.path, item.sha256, item.text)
+    )
+    random.Random(seed).shuffle(shuffled)
+    validation_count = max(1, len(shuffled) // 5)
+    return {
+        "train": shuffled[validation_count:],
+        "validation": shuffled[:validation_count],
+        "evaluation": sorted(
+            evaluation_documents, key=lambda item: (item.path, item.sha256, item.text)
+        ),
+    }
+
+
 def _passages(text: str, max_chars: int) -> list[str]:
     """Use original contiguous substrings, preferring paragraph and line ends."""
     remaining = text.strip()
