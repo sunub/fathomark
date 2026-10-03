@@ -72,7 +72,8 @@ def load_documents(
     seen = set()
     for path in sorted(paths, key=lambda item: item.relative_to(folder).as_posix()):
         try:
-            text = path.read_text(encoding="utf-8").replace("\r\n", "\n").strip()
+            source_bytes = path.read_bytes()
+            text = source_bytes.decode("utf-8").replace("\r\n", "\n").strip()
         except (OSError, UnicodeError) as error:
             raise ValueError(
                 f"Cannot read UTF-8 corpus document {path}: {error}"
@@ -84,7 +85,7 @@ def load_documents(
             Document(
                 path.relative_to(folder).as_posix(),
                 text,
-                hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                hashlib.sha256(source_bytes).hexdigest(),
             )
         )
     return documents

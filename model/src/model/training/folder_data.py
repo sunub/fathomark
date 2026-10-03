@@ -101,7 +101,15 @@ def _style_observation(
         + json.dumps(source, ensure_ascii=False)
     )
     data = _json_object(extract(prompt))
-    if set(data) != set(_STYLE_FIELDS):
+    profile = style_profile_from_dict(data, (source,))
+    return {field_name: getattr(profile, field_name) for field_name in _STYLE_FIELDS}
+
+
+def style_profile_from_dict(
+    data: object, source_passages: tuple[str, ...]
+) -> StyleProfile:
+    """Validate fact-free style descriptions against their source passages."""
+    if not isinstance(data, dict) or set(data) != set(_STYLE_FIELDS):
         raise ValueError("style observation must contain exactly the required fields")
     observation = {}
     for field_name in _STYLE_FIELDS:
@@ -126,10 +134,10 @@ def _style_observation(
                 raise ValueError("style profile contains a digit")
             if "`" in value:
                 raise ValueError("style profile contains code")
-            if _style_overlap(value, source):
+            if any(_style_overlap(value, source) for source in source_passages):
                 raise ValueError("style profile copies a long source phrase")
         observation[field_name] = tuple(values)
-    return observation
+    return StyleProfile(**observation)
 
 
 def _aggregate_style(
@@ -178,14 +186,21 @@ def _fact_statements(
         + json.dumps(passage, ensure_ascii=False)
     )
     data = _json_object(extract(prompt), "facts")
-    rows = data["facts"]
+    return fact_statements_from_rows(data["facts"], passage)
+
+
+def fact_statements_from_rows(rows: object, passage: str) -> tuple[FactStatement, ...]:
+    """Validate grounded fact rows and derive their required source literals."""
     if not isinstance(rows, list) or not rows:
         raise ValueError("facts must be a nonempty list")
 
     statements = []
     seen = set()
     for row in rows:
-        if not isinstance(row, dict) or set(row) != {"statement", "evidence_spans"}:
+        if not isinstance(row, dict) or set(row) not in (
+            {"statement", "evidence_spans"},
+            {"statement", "evidence_spans", "required_literals"},
+        ):
             raise TypeError("each fact must contain statement and evidence_spans")
         statement = row["statement"]
         spans = row["evidence_spans"]
@@ -217,7 +232,8 @@ def _fact_statements(
         required_literals = tuple(
             token
             for token in dict.fromkeys(re.findall(r"\S*\d\S*", passage))
-            if token in statement and any(token in span for span in evidence_spans)
+            if token in statement.split()
+            and any(token in span.split() for span in evidence_spans)
         )
         statements.append(FactStatement(statement, evidence_spans, required_literals))
 
