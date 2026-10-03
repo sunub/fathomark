@@ -210,12 +210,9 @@ def _fact_statements(
             raise ValueError("duplicate evidence spans")
         if any(span not in passage for span in evidence_spans):
             raise ValueError("evidence span is not an exact source excerpt")
-        key = (
-            _normalize(statement),
-            tuple(sorted(_normalize(span) for span in evidence_spans)),
-        )
+        key = _normalize(statement)
         if key in seen:
-            raise ValueError("duplicate facts")
+            raise ValueError("duplicate fact statements")
         seen.add(key)
         required_literals = tuple(
             token
@@ -293,7 +290,7 @@ def prepare_folder_draft(
                     if passage_key in seen_passages:
                         raise ValueError("duplicate normalized passage across splits")
                     statements = _fact_statements(passage, extract)
-                    statement_key = tuple(
+                    statement_key = frozenset(
                         sorted(_normalize(item.statement) for item in statements)
                     )
                     if statement_key in seen_statements:

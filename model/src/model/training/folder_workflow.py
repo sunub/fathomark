@@ -75,6 +75,10 @@ def _write_temporary(path, text):
     return temporary
 
 
+def _atomic_json(path, value):
+    _write_temporary(path, _json_text(value)).replace(path)
+
+
 def _filter_lengths(prepared, tokenizer, max_length):
     for split, attribute in [("train", "training"), ("validation", "validation")]:
         accepted = []
@@ -170,7 +174,7 @@ def prepare_folder(args):
         "seed": args.seed,
         **summary,
     }
-    _json(output / "run.json", run)
+    _atomic_json(output / "run.json", run)
     artifact_names = (
         "preparation.json",
         "style-profile.draft.json",
@@ -246,7 +250,7 @@ def prepare_folder(args):
         for name in artifact_names:
             temporary_paths[name].replace(output / name)
         final_run = {**run, "status": "pending_preparation_review"}
-        _json(output / "run.json", final_run)
+        _atomic_json(output / "run.json", final_run)
         print(
             json.dumps(
                 {
@@ -257,11 +261,11 @@ def prepare_folder(args):
                 ensure_ascii=False,
             )
         )
-    except Exception as error:
+    except BaseException as error:
         for name in artifact_names:
             (output / name).unlink(missing_ok=True)
             (output / f".{name}.tmp").unlink(missing_ok=True)
-        _json(
+        _atomic_json(
             output / "run.json",
             {**run, "status": "preparation_failed", "error": str(error)},
         )
