@@ -161,7 +161,10 @@ def prepare_folder(args):
         raise ValueError("Output directory must be outside the input folder")
     if output.exists():
         raise ValueError("Output directory already exists; choose a new directory")
-    output.mkdir(parents=True)
+    staging = output.with_name(f".{output.name}.preparing")
+    if staging.exists():
+        raise ValueError("Preparation staging directory already exists")
+    staging.mkdir(parents=True)
     run = {
         "schema_version": 1,
         "command": "prepare-folder",
@@ -174,7 +177,7 @@ def prepare_folder(args):
         "seed": args.seed,
         **summary,
     }
-    _atomic_json(output / "run.json", run)
+    _atomic_json(staging / "run.json", run)
     artifact_names = (
         "preparation.json",
         "style-profile.draft.json",
@@ -238,7 +241,7 @@ def prepare_folder(args):
             ),
         }
         temporary_paths = {
-            name: _write_temporary(output / name, text)
+            name: _write_temporary(staging / name, text)
             for name, text in artifacts.items()
         }
         for name, temporary in temporary_paths.items():
@@ -248,28 +251,32 @@ def prepare_folder(args):
             else:
                 json.loads(temporary.read_text(encoding="utf-8"))
         for name in artifact_names:
-            temporary_paths[name].replace(output / name)
+            temporary_paths[name].replace(staging / name)
         final_run = {**run, "status": "pending_preparation_review"}
-        _atomic_json(output / "run.json", final_run)
-        print(
-            json.dumps(
-                {
-                    "output": str(output),
-                    "status": "pending_preparation_review",
-                    "samples": sample_counts,
-                },
-                ensure_ascii=False,
-            )
-        )
+        _atomic_json(staging / "run.json", final_run)
+        staging.replace(output)
     except BaseException as error:
         for name in artifact_names:
-            (output / name).unlink(missing_ok=True)
-            (output / f".{name}.tmp").unlink(missing_ok=True)
-        _atomic_json(
-            output / "run.json",
-            {**run, "status": "preparation_failed", "error": str(error)},
-        )
+            (staging / name).unlink(missing_ok=True)
+            (staging / f".{name}.tmp").unlink(missing_ok=True)
+        (staging / ".run.json.tmp").unlink(missing_ok=True)
+        if staging.exists():
+            _atomic_json(
+                staging / "run.json",
+                {**run, "status": "preparation_failed", "error": str(error)},
+            )
+            staging.replace(output)
         raise
+    print(
+        json.dumps(
+            {
+                "output": str(output),
+                "status": "pending_preparation_review",
+                "samples": sample_counts,
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 def train_folder(args):
