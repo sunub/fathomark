@@ -396,6 +396,83 @@ class FolderDataTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "3 accepted evaluation"):
             prepare_folder_draft(splits, draft_extract)
 
+    def test_duplicate_fact_statement_cannot_bypass_cross_split_checks(self):
+        splits = {
+            "train": [
+                doc(
+                    "a.md",
+                    "Alpha evidence supports agreement. Additional context remains.",
+                ),
+                doc("b.md", "Second training fact is separate. More context remains."),
+            ],
+            "validation": [
+                doc("v.md", "Validation fact is separate. More context remains.")
+            ],
+            "evaluation": [
+                doc(
+                    "evaluation/duplicate.md",
+                    "Evidence one supports agreement. Evidence two confirms it. Extra context remains.",
+                ),
+                *[
+                    doc(
+                        f"evaluation/e{index}.md",
+                        f"Unique evaluation {word} is separate. More context remains.",
+                    )
+                    for index, word in enumerate(("one", "two", "three"), start=1)
+                ],
+            ],
+        }
+
+        def draft_extract(prompt):
+            if "STYLE_SOURCE_JSON: " in prompt:
+                return style_draft_response()
+            passage = json.loads(prompt.rsplit("FACT_SOURCE_JSON: ", 1)[1])
+            if passage.startswith("Alpha evidence"):
+                return json.dumps(
+                    {
+                        "facts": [
+                            {
+                                "statement": "The team agreed.",
+                                "evidence_spans": [
+                                    "Alpha evidence supports agreement."
+                                ],
+                            }
+                        ]
+                    }
+                )
+            if passage.startswith("Evidence one"):
+                return json.dumps(
+                    {
+                        "facts": [
+                            {
+                                "statement": "The team agreed.",
+                                "evidence_spans": ["Evidence one supports agreement."],
+                            },
+                            {
+                                "statement": "The team agreed.",
+                                "evidence_spans": ["Evidence two confirms it."],
+                            },
+                        ]
+                    }
+                )
+            return fact_draft_response(prompt)
+
+        result = prepare_folder_draft(splits, draft_extract)
+
+        self.assertFalse(
+            any(
+                item.source_document["path"] == "evaluation/duplicate.md"
+                for item in result.facts
+            )
+        )
+        self.assertTrue(
+            any(
+                item["source_document"]["path"] == "evaluation/duplicate.md"
+                and "duplicate" in item["reason"]
+                for item in result.skipped
+            )
+        )
+
     def test_original_targets_and_only_other_training_document_styles(self):
         splits = {
             "train": [

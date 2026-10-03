@@ -320,6 +320,91 @@ class FolderWorkflowTest(unittest.TestCase):
             self.assertFalse((output / "candidate").exists())
             self.assertFalse(any(output.glob("*.tmp")))
 
+    def test_prepare_folder_interrupt_during_publication_cleans_partial_drafts(self):
+        from unittest.mock import MagicMock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            temporary = Path(tmp)
+            root = temporary / "writing"
+            self.preparation_documents(root)
+            output = temporary / "interrupted-preparation"
+            model = MagicMock()
+            model.config._commit_hash = None
+
+            def extract(model, tokenizer, prompt, **kwargs):
+                if "STYLE_SOURCE_JSON: " in prompt:
+                    return json.dumps(
+                        {
+                            "tone": ["차분하게 설명한다"],
+                            "organization": ["핵심을 먼저 제시한다"],
+                            "sentence_style": ["짧은 설명문을 사용한다"],
+                            "formatting": ["필요할 때 목록을 사용한다"],
+                        },
+                        ensure_ascii=False,
+                    )
+                passage = json.loads(prompt.rsplit("FACT_SOURCE_JSON: ", 1)[1])
+                evidence = passage.split(". ", 1)[0] + "."
+                return json.dumps(
+                    {
+                        "facts": [
+                            {
+                                "statement": evidence,
+                                "evidence_spans": [evidence],
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                )
+
+            original_replace = Path.replace
+            publications = 0
+            draft_names = {
+                "preparation.json",
+                "style-profile.draft.json",
+                "facts.draft.jsonl",
+                "automatic-checks.json",
+            }
+
+            def interrupt_second_publication(path, target):
+                nonlocal publications
+                if target.name in draft_names:
+                    publications += 1
+                    if publications == 2:
+                        raise KeyboardInterrupt("simulated publication interrupt")
+                return original_replace(path, target)
+
+            with (
+                patch(
+                    "model.training.folder_workflow.load_base_model",
+                    return_value=(MagicMock(), model),
+                ),
+                patch(
+                    "model.training.folder_workflow.generate_text", side_effect=extract
+                ),
+                patch.object(Path, "replace", new=interrupt_second_publication),
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                main(
+                    [
+                        "prepare-folder",
+                        "--input-dir",
+                        str(root),
+                        "--output-dir",
+                        str(output),
+                    ]
+                )
+
+            run = json.loads((output / "run.json").read_text())
+            self.assertEqual(run["status"], "preparation_failed")
+            for name in (
+                "preparation.json",
+                "style-profile.draft.json",
+                "facts.draft.jsonl",
+                "automatic-checks.json",
+            ):
+                self.assertFalse((output / name).exists())
+            self.assertFalse(any(output.glob(".*.tmp")))
+
     def test_auto_data_to_real_tiny_training_and_evaluation(self):
         from tokenizers import Tokenizer
         from tokenizers.models import WordLevel
