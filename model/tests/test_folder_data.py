@@ -150,6 +150,12 @@ class FolderDataTest(unittest.TestCase):
                     "evidence_spans": ["회의는 14:00에 시작한다."],
                 }
             ],
+            "unsupported numeric addition": [
+                {
+                    "statement": "회의는 15:00이 아니라 14:00에 시작한다.",
+                    "evidence_spans": ["회의는 14:00에 시작한다."],
+                }
+            ],
             "repeated statements": [
                 {
                     "statement": "회의는 14:00에 시작한다.",
