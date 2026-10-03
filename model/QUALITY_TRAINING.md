@@ -1,5 +1,48 @@
 # 평가 기준과 연결한 문체 학습
 
+## 1단계: 학습 전에 검토 자료만 준비
+
+새 검토 우선 흐름은 학습을 시작하기 전에 문체 프로필과 사실 문장을 별도 산출물로
+만듭니다. 선택한 폴더 안에 `evaluation/` 하위 폴더를 만들고, 학습에 사용하지 않을
+새 사용자 글을 최소 세 사례가 나오도록 넣습니다.
+
+```text
+my-writing/
+├── article-1.md
+├── article-2.md
+├── article-3.md
+└── evaluation/
+    ├── new-topic-1.md
+    ├── new-topic-2.md
+    └── new-topic-3.md
+```
+
+`model/`에서 준비 명령을 실행합니다.
+
+```bash
+uv run python -m model.training prepare-folder \
+  --input-dir "/absolute/path/to/my-writing" \
+  --output-dir "/absolute/path/to/prepared-run"
+```
+
+`--dry-run`을 사용하면 모델을 불러오거나 파일을 만들지 않고 학습·검증·평가 문서
+개수만 확인합니다. `evaluation/`은 문체 프로필, 학습, 검증에서 읽지 않으며 평가
+자료로만 유지됩니다. 일반 문서와 평가 문서의 정규화된 내용이 겹치면 준비를
+중단합니다.
+
+성공한 출력은 다음 다섯 파일만 포함합니다.
+
+- `run.json`: `pending_preparation_review` 상태와 실행 입력.
+- `preparation.json`: 문서 해시, 사례 수, 제외한 항목과 추출 모델 정보.
+- `style-profile.draft.json`: 학습 문서에서 추상화한 폴더 단위 문체 프로필 초안.
+- `facts.draft.jsonl`: 완전한 사실 문장, 정확한 원문 근거 구간과 검토용 출처.
+- `automatic-checks.json`: URL·숫자·코드·장문 복사 및 근거 구조 검사 결과.
+
+자동 검사는 원문 문자열과 구조를 확인할 뿐 의미가 정확하다는 사람의 승인을 대신하지
+않습니다. 출력에는 원문 구간과 문서 경로가 포함되므로 개인 자료처럼 로컬에서
+보관하세요. 이 단계는 LoRA를 학습하거나 `candidate/`를 만들지 않습니다.
+`approve-preparation`과 `train-prepared`는 후속 단계이며 아직 사용할 수 없습니다.
+
 ## 기본 사용: 문서 폴더만 지정
 
 사용자가 JSONL 파일을 직접 준비할 필요는 없습니다. `model/`에서 다음 명령을 실행합니다.
