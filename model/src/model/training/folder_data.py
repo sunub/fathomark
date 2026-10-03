@@ -196,6 +196,7 @@ def fact_statements_from_rows(rows: object, passage: str) -> tuple[FactStatement
 
     statements = []
     seen = set()
+    number_tokens = tuple(dict.fromkeys(re.findall(r"\S*\d\S*", passage)))
     for row in rows:
         if not isinstance(row, dict) or set(row) not in (
             {"statement", "evidence_spans"},
@@ -225,6 +226,15 @@ def fact_statements_from_rows(rows: object, passage: str) -> tuple[FactStatement
             raise ValueError("duplicate evidence spans")
         if any(span not in passage for span in evidence_spans):
             raise ValueError("evidence span is not an exact source excerpt")
+        statement_numbers = set(re.findall(r"\S*\d\S*", statement))
+        evidence_numbers = {
+            token for span in evidence_spans for token in re.findall(r"\S*\d\S*", span)
+        }
+        if any(
+            token not in number_tokens or token not in evidence_numbers
+            for token in statement_numbers
+        ):
+            raise ValueError("fact statement contains an unsupported numeric token")
         key = _normalize(statement)
         if key in seen:
             raise ValueError("duplicate fact statements")
@@ -247,7 +257,6 @@ def fact_statements_from_rows(rows: object, passage: str) -> tuple[FactStatement
     ):
         raise ValueError("facts cover nearly the entire target (copy task)")
 
-    number_tokens = tuple(dict.fromkeys(re.findall(r"\S*\d\S*", passage)))
     covered_literals = {
         token for statement in statements for token in statement.required_literals
     }
