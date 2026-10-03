@@ -280,10 +280,19 @@ def evaluate_candidate(args):
 
 
 def run_command(args):
-    if args.command in ("prepare-folder", "train-folder"):
-        from model.training.folder_workflow import prepare_folder, train_folder
+    if args.command in ("prepare-folder", "approve-preparation", "train-folder"):
+        from model.training.folder_workflow import (
+            approve_preparation,
+            prepare_folder,
+            train_folder,
+        )
 
-        (prepare_folder if args.command == "prepare-folder" else train_folder)(args)
+        folder_commands = {
+            "prepare-folder": prepare_folder,
+            "approve-preparation": approve_preparation,
+            "train-folder": train_folder,
+        }
+        folder_commands[args.command](args)
     elif args.command == "prepare-targets":
         from model.training.supervised import prepare_target_reviews
 

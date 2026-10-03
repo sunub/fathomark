@@ -1,5 +1,6 @@
 """One folder in, automatically derived local data and an evaluated candidate out."""
 
+import hashlib
 import json
 import math
 from dataclasses import asdict
@@ -57,6 +58,14 @@ def add_folder_command(commands):
     prepare.add_argument("--extraction-tokens", type=int, default=512)
     prepare.add_argument("--seed", type=int, default=42)
 
+    approve = commands.add_parser(
+        "approve-preparation",
+        help="Validate reviewed preparation files and seal them for later training",
+    )
+    approve.add_argument("--run-dir", required=True, type=Path)
+    approve.add_argument("--style-profile", required=True, type=Path)
+    approve.add_argument("--facts-file", required=True, type=Path)
+
 
 def _json(path, value):
     path.write_text(
@@ -71,7 +80,14 @@ def _json_text(value):
 
 def _write_temporary(path, text):
     temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_text(text, encoding="utf-8")
+    if temporary.is_symlink():
+        raise ValueError(f"Temporary path must not be a symlink: {temporary}")
+    if temporary.exists():
+        if not temporary.is_file():
+            raise ValueError(f"Temporary path must be a regular file: {temporary}")
+        temporary.unlink()
+    with temporary.open("x", encoding="utf-8") as file:
+        file.write(text)
     return temporary
 
 
@@ -277,6 +293,119 @@ def prepare_folder(args):
             ensure_ascii=False,
         )
     )
+
+
+_APPROVAL_NAMES = (
+    "style-profile.approved.json",
+    "facts.approved.jsonl",
+    "approval.json",
+)
+
+
+def _clear_approval_staging(staging: Path) -> None:
+    if not staging.exists() and not staging.is_symlink():
+        return
+    if staging.is_symlink() or not staging.is_dir():
+        raise ValueError("Approval staging path is not a private directory")
+    entries = list(staging.iterdir())
+    if any(
+        entry.name not in _APPROVAL_NAMES or not entry.is_file() for entry in entries
+    ):
+        raise ValueError("Approval staging directory contains unexpected entries")
+    for entry in entries:
+        entry.unlink()
+    staging.rmdir()
+
+
+def _approval_run(run_dir: Path) -> dict[str, object]:
+    run_path = run_dir / "run.json"
+    if run_path.is_symlink() or not run_path.is_file():
+        raise ValueError("run.json must be a regular non-symlink file")
+    try:
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"Cannot read run.json: {error}") from error
+    if not isinstance(run, dict):
+        raise TypeError("run.json must contain an object")
+    return run
+
+
+def _approval_summary(run_dir: Path, approval_sha256: str, count: int) -> None:
+    print(
+        json.dumps(
+            {
+                "run": str(run_dir),
+                "status": "approved_for_training",
+                "facts": count,
+                "approval_sha256": approval_sha256,
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+def approve_preparation(args):
+    """Validate reviewed drafts and atomically publish a private sealed bundle."""
+    from model.training.preparation_review import (
+        approved_artifacts,
+        review_preparation,
+        verify_approval_bundle,
+    )
+
+    run_dir = args.run_dir.expanduser()
+    if run_dir.is_symlink() or not run_dir.is_dir():
+        raise ValueError("run-dir must be an existing non-symlink directory")
+    approved = review_preparation(run_dir, args.style_profile, args.facts_file)
+    artifacts = approved_artifacts(approved)
+    approval_sha256 = hashlib.sha256(artifacts["approval.json"]).hexdigest()
+    approved_dir = run_dir / "approved"
+    staging = run_dir / ".approval.preparing"
+    run = _approval_run(run_dir)
+
+    if approved_dir.exists() or approved_dir.is_symlink():
+        _clear_approval_staging(staging)
+        verify_approval_bundle(approved_dir)
+        if any(
+            (approved_dir / name).read_bytes() != artifacts[name]
+            for name in _APPROVAL_NAMES
+        ):
+            raise ValueError("A different approval bundle is already sealed")
+        if run.get("status") == "approved_for_training":
+            if (
+                run.get("approval_dir") != "approved"
+                or run.get("approval_sha256") != approval_sha256
+            ):
+                raise ValueError("run.json disagrees with the sealed approval bundle")
+            _approval_summary(run_dir, approval_sha256, len(approved.facts))
+            return
+        if run.get("status") != "pending_preparation_review":
+            raise ValueError("run.json is not recoverable for approval")
+    else:
+        if run.get("status") != "pending_preparation_review":
+            raise ValueError("approved_for_training run is missing its sealed bundle")
+        _clear_approval_staging(staging)
+        try:
+            staging.mkdir(mode=0o700)
+            staging.chmod(0o700)
+            for name in _APPROVAL_NAMES:
+                path = staging / name
+                with path.open("xb") as file:
+                    file.write(artifacts[name])
+                path.chmod(0o600)
+            verify_approval_bundle(staging)
+            staging.replace(approved_dir)
+        except BaseException:
+            _clear_approval_staging(staging)
+            raise
+
+    final_run = {
+        **run,
+        "status": "approved_for_training",
+        "approval_dir": "approved",
+        "approval_sha256": approval_sha256,
+    }
+    _atomic_json(run_dir / "run.json", final_run)
+    _approval_summary(run_dir, approval_sha256, len(approved.facts))
 
 
 def train_folder(args):
