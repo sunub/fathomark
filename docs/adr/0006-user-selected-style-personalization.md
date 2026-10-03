@@ -28,13 +28,30 @@ Fathomark will pursue user-selected, local-first personalization, with prompting
 - Apply a candidate only after it passes the agreed evaluation gates and the user chooses to use it. Preserve a path to return to the previous personalization state.
 - Keep selected material, preferences, and user-specific adapters on-device by default. Do not treat an adapter as a substitute for retrieving and citing current Vault evidence.
 
+### First-run personalization experience
+
+Personalization is an optional, one-time onboarding path rather than work the user repeats whenever the plugin starts. A user can defer it and continue with the unpersonalized base model.
+
+When the user chooses **Personalize to my writing style**, the product guides them through this sequence:
+
+1. Select the local folder that contains the writing they intentionally provide for personalization.
+2. Generate one folder-level, fact-free style profile and complete factual statements from the selected writing.
+3. Pause before training so the user can review and edit the style profile and every factual statement. Training uses only approved preparation data.
+4. Train the candidate and run objective quality checks in the background.
+5. Show at least three method-blind style comparisons only when the candidate answers have passed the independent quality gates. The style gate requires the LoRA candidate to win a strict majority of valid votes; `no_difference` is neutral and `neither` records a failed comparison.
+6. Store the candidate as the user's approved model only when it passes both the quality gate and the user's style-preference gate.
+
+The selected writing folder may contain an explicit `evaluation/` subdirectory for new user-authored held-out documents. Those documents represent the same user's intended style, but they are excluded from style-profile generation, training, and validation. They are used only to evaluate whether the candidate generalizes to unseen writing.
+
+Failed and superseded runs remain on-device as reviewable records; they are not promoted to the approved personalization state. The plugin reuses the approved candidate across launches. It starts a new personalization run only when the user requests one or when an input that determines compatibility changes, such as the selected writing set, approved style profile, or base model.
+
 ## Consequences
 
 This direction uses the user's selection as an explicit relevance signal instead of relying on automatic authorship detection or whole-Vault inference. It supports a progression from prompt and example-based personalization to LoRA only when the user's data and measured results justify the added training workflow.
 
 Selected passages may still contain facts or copied text. Selection establishes the desired style target, not a guarantee that the passage is fact-free or originally authored by the user. Evaluation must therefore distinguish stylistic generalization from reproducing source content. This is a risk to measure and control, not a reason to treat the earlier prohibition as immutable.
 
-The decision does not yet set scoring rubrics, minimum preference volume, statistical thresholds, adapter training objective, detailed retention and deletion UX, or hardware requirements. Those remain open and must be resolved before implementation of the training and update workflow.
+The decision does not yet set the detailed objective-review workflow, adapter training objective, onboarding UI layout, background execution boundary, or hardware requirements. Those remain open and must be resolved before implementation of the training and update workflow.
 
 ## Rejected alternatives
 
