@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { PROPOSED_LIMITS } from "../src/harness/budget"
 import { AgentHarness } from "../src/harness/harness"
 import { RunSession } from "../src/harness/session"
-import { FakeModelProvider } from "../src/providers/fake"
+import { FakeModelProvider, fakeRequestCounter } from "../src/providers/fake"
 import { ToolRegistry } from "../src/tools/registry"
 
 const packet = {
@@ -23,6 +23,7 @@ function createHarness(provider = new FakeModelProvider({ chunks: ["a", "b"] }))
     limits: PROPOSED_LIMITS,
     permissions: { networkResearchEnabled: false },
     model: "fake",
+    counter: fakeRequestCounter,
   })
 }
 

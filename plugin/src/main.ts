@@ -8,7 +8,7 @@ import { EditorAdapter } from "./obsidian/editor-adapter";
 import { EditorTargetTracker } from "./obsidian/editor-target";
 import { PreviewController } from "./obsidian/insertion-preview";
 import { VaultAdapter } from "./obsidian/vault-adapter";
-import { FakeModelProvider } from "./providers/fake";
+import { FakeModelProvider, fakeRequestCounter } from "./providers/fake";
 import { DEFAULT_SETTINGS, type FathomarkSettings, parseSettings } from "./settings";
 import { ToolRegistry } from "./tools/registry";
 import { CHAT_VIEW_TYPE, ChatView } from "./view/chat-view";
@@ -50,6 +50,8 @@ export default class FathomarkPlugin extends Plugin {
       limits: PROPOSED_LIMITS,
       permissions: { networkResearchEnabled: this.settings.networkResearchEnabled },
       model: this.settings.model,
+      // Fake-provider counter only; a real provider needs a verified profile.
+      counter: fakeRequestCounter,
     });
     this.session = new RunSession(this.harness);
 

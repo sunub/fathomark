@@ -1,26 +1,29 @@
 /*
  * The Agent Harness.
  *
- * It owns the run: state transitions, cancellation, the tool allowlist, call
- * limits, budget, and the translation of everything into RunEvent. The model
- * loop itself is the replaceable part.
+ * It owns the run: state transitions, cancellation, timeout, and the single
+ * error boundary. The model loop (runAgentLoop) is the replaceable part: it only
+ * yields RunEvent, and this class turns those events into run states.
  *
  * LangChain is not imported here yet, and that is intentional rather than
- * unfinished. ROADMAP Phase 0 wants a fake streamed response running through
- * these states first, and keeping the seam empty for one phase gives a
- * bundle-size baseline to compare against once `createAgent` arrives — see the
- * budget check in build.mjs. When it lands, it lands in THIS file and nowhere
- * else: .dependency-cruiser.cjs enforces that.
+ * unfinished. Keeping the loop an event source gives a behaviour and bundle-size
+ * baseline to compare `createAgent` against — see the budget check in build.mjs.
+ * When it lands it replaces the loop's internals and this class stays as it is;
+ * .dependency-cruiser.cjs keeps it inside src/harness.
  */
 
-import type { ContextPacket } from "../context/packet";
-import type { ModelProvider, ModelRequest } from "../providers/types";
+import type { ModelProvider, RequestCounter } from "../providers/types";
 import type { ToolRegistry } from "../tools/registry";
 import { type BudgetLimits, emptyUsage } from "./budget";
 import type { RunEvent, RunEventListener, RunId } from "./events";
-import { CallLimiter, type PermissionContext } from "./policy";
+import { runAgentLoop } from "./langchain-loop";
+import type { PermissionContext } from "./policy";
+import type { RunInput } from "./run-input";
 import { type RunState, isActive, transition } from "./run-state";
-import { raceWithSignal } from "./abort";
+
+export type { RunInput } from "./run-input";
+
+type RunOutcome = Extract<RunEvent, { type: "run_completed" }>["outcome"];
 
 export interface HarnessOptions {
   readonly provider: ModelProvider;
@@ -28,12 +31,8 @@ export interface HarnessOptions {
   readonly limits: BudgetLimits;
   readonly permissions: PermissionContext;
   readonly model: string;
+  readonly counter: RequestCounter;
   readonly runTimeoutMs?: number;
-}
-
-export interface RunInput {
-  readonly question: string;
-  readonly packet: ContextPacket;
 }
 
 export class AgentHarness {
@@ -75,7 +74,6 @@ export class AgentHarness {
     const runId = `run-${(++this.runCounter).toString(16).padStart(4, "0")}` as RunId;
     const controller = new AbortController();
     this.controller = controller;
-    const limiter = new CallLimiter();
     const started = Date.now();
     const timeoutMs = this.options.runTimeoutMs ?? 120_000;
     const timeout = setTimeout(() => {
@@ -92,84 +90,42 @@ export class AgentHarness {
       this.go(runId, "preparing_context");
       this.emit({ type: "budget", runId, usage: emptyUsage(this.options.limits) });
 
-      const request: ModelRequest = {
-        model: this.options.model,
-        messages: [
-          { role: "system", content: input.packet.systemInstructions },
-          { role: "user", content: input.question },
-        ],
-        tools: [],
-        maxOutputTokens: this.options.limits.outputReserve,
-        contextWindow: this.options.limits.modelContext,
-      };
+      let outcome: RunOutcome | null = null;
+      const loop = runAgentLoop(
+        runId,
+        input,
+        {
+          provider: this.options.provider,
+          model: this.options.model,
+          tools: this.options.tools,
+          limits: this.options.limits,
+          counter: this.options.counter,
+          permissions: () => this.options.permissions,
+        },
+        controller.signal,
+      );
 
-      this.go(runId, "waiting_for_model");
-
-      let sawOutput = false;
-      let completionReason: "stop" | "length" | "tool_calls" | null = null;
-      const stream = this.options.provider.stream(request, controller.signal);
-      const iterator = stream[Symbol.asyncIterator]();
-      while (true) {
-        const next = await raceWithSignal(iterator.next(), controller.signal);
-        if (next.done) break;
-        const event = next.value;
-        switch (event.type) {
-          case "text":
-            if (!sawOutput) {
-              sawOutput = true;
-              this.go(runId, "streaming");
-            }
-            this.emit({ type: "text", runId, delta: event.delta });
-            break;
-
-          case "tool_call": {
-            /*
-             * The model proposed a name. Two refusals happen before anything
-             * runs, and neither consults the model: is this tool registered at
-             * all, and has this run already called it too often?
-             */
-            const tool = this.options.tools.get(event.call.name);
-            if (!tool) {
-              this.emit({
-                type: "tool_failed",
-                runId,
-                callId: event.call.callId,
-                reason: `${event.call.name} is not a Fathomark tool.`,
-              });
-              break;
-            }
-            const refusal = limiter.check(tool.name);
-            if (refusal) {
-              this.emit({ type: "tool_failed", runId, callId: event.call.callId, reason: refusal });
-              break;
-            }
-            this.emit({
-              type: "tool_call",
-              runId,
-              callId: event.call.callId,
-              tool: tool.name,
-              args: event.call.args,
-            });
-            break;
-          }
-
-          case "done":
-            completionReason = event.reason;
-            this.go(
-              runId,
-              isActive(this.state) && this.state !== "streaming" ? "streaming" : this.state,
-            );
-            break;
+      for await (const event of loop) {
+        // The loop reports how it ended; the harness turns that into a state,
+        // so the UI and RunSession keep reading one completion signal.
+        if (event.type === "run_completed") {
+          outcome = event.outcome;
+          continue;
         }
+        this.advance(runId, event);
+        this.emit(event);
       }
 
-      if (completionReason === null) {
-        throw new Error("The model stream ended without a completion event.");
+      if (outcome === null) {
+        throw new Error("The agent loop ended without a completion.");
       }
 
+      // preparing_answer is reachable only from streaming or executing_tool, so
+      // a run that produced no prose still passes through streaming.
+      if (this.currentState() === "waiting_for_model") this.go(runId, "streaming");
       this.go(runId, "preparing_answer");
       this.emit({ type: "usage", runId, elapsedMs: Date.now() - started, tokens: 0 });
-      this.go(runId, completionReason === "stop" ? "complete" : "incomplete");
+      this.go(runId, outcome);
     } catch (error) {
       /*
        * Cancellation is an outcome, not a failure. Conflating them is how a
@@ -200,6 +156,31 @@ export class AgentHarness {
     } finally {
       clearTimeout(timeout);
       this.controller = null;
+    }
+  }
+
+  /**
+   * Run state follows the loop's events. Each guard is a transition that
+   * run-state.ts would otherwise refuse, not a defensive check.
+   */
+  private advance(runId: RunId, event: RunEvent): void {
+    switch (event.type) {
+      case "budget":
+        if (this.state === "preparing_context") this.go(runId, "waiting_for_model");
+        break;
+      case "text":
+        // After a tool call began, prose does not move the state backwards.
+        if (this.state === "waiting_for_model") this.go(runId, "streaming");
+        break;
+      case "tool_call":
+        // waiting_for_model cannot go straight to executing_tool.
+        if (this.state === "waiting_for_model") this.go(runId, "streaming");
+        this.go(runId, "executing_tool");
+        break;
+      case "tool_result":
+      case "tool_failed":
+        if (this.state === "executing_tool") this.go(runId, "waiting_for_model");
+        break;
     }
   }
 

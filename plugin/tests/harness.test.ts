@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { PROPOSED_LIMITS } from "../src/harness/budget"
 import type { RunEvent } from "../src/harness/events"
 import { AgentHarness } from "../src/harness/harness"
-import { FakeModelProvider } from "../src/providers/fake"
+import { FakeModelProvider, fakeRequestCounter } from "../src/providers/fake"
 import type { ModelProvider } from "../src/providers/types"
 import { ToolRegistry } from "../src/tools/registry"
 
@@ -14,6 +14,7 @@ function harness(provider: FakeModelProvider) {
     limits: PROPOSED_LIMITS,
     permissions: { networkResearchEnabled: false },
     model: "fake",
+    counter: fakeRequestCounter,
   })
 }
 
@@ -44,6 +45,7 @@ describe("agent harness", () => {
       limits: PROPOSED_LIMITS,
       permissions: { networkResearchEnabled: false },
       model: "length",
+      counter: fakeRequestCounter,
     })
 
     await agent.run({ question: "hello", packet })
@@ -66,6 +68,7 @@ describe("agent harness", () => {
       limits: PROPOSED_LIMITS,
       permissions: { networkResearchEnabled: false },
       model: "eof",
+      counter: fakeRequestCounter,
     })
     const events: RunEvent[] = []
     agent.subscribe((event) => events.push(event))
@@ -102,6 +105,7 @@ describe("agent harness", () => {
       limits: PROPOSED_LIMITS,
       permissions: { networkResearchEnabled: false },
       model: "timeout",
+      counter: fakeRequestCounter,
       runTimeoutMs: 20,
     })
     const events: RunEvent[] = []
@@ -133,6 +137,7 @@ describe("agent harness", () => {
       limits: PROPOSED_LIMITS,
       permissions: { networkResearchEnabled: false },
       model: "timeout",
+      counter: fakeRequestCounter,
       runTimeoutMs: 10,
     })
 
