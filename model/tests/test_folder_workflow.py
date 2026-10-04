@@ -50,6 +50,260 @@ class FolderWorkflowTest(unittest.TestCase):
             ):
                 parser.parse_args(["approve-preparation", *incomplete])
 
+    def test_train_prepared_parser_uses_sealed_run_without_model_override(self):
+        args = _parser().parse_args(
+            ["train-prepared", "--run-dir", "/tmp/run", "--dry-run"]
+        )
+
+        self.assertEqual(args.command, "train-prepared")
+        self.assertEqual(args.run_dir, Path("/tmp/run"))
+        self.assertTrue(args.dry_run)
+        self.assertFalse(hasattr(args, "model"))
+        self.assertFalse(hasattr(args, "style_profile"))
+        self.assertFalse(hasattr(args, "facts_file"))
+
+    def test_train_prepared_dry_run_verifies_without_model_or_writes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            with contextlib.redirect_stdout(io.StringIO()):
+                self._approve_fixture(fixture)
+            before = {
+                path.relative_to(fixture.run_dir).as_posix(): path.read_bytes()
+                for path in fixture.run_dir.rglob("*")
+                if path.is_file()
+            }
+            with (
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=AssertionError("dry run must not train"),
+                ),
+                patch(
+                    "model.training.folder_workflow.load_base_model",
+                    side_effect=AssertionError("dry run must not load a model"),
+                ),
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                self._train_fixture(fixture, "--dry-run")
+
+            after = {
+                path.relative_to(fixture.run_dir).as_posix(): path.read_bytes()
+                for path in fixture.run_dir.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(before, after)
+            report = json.loads(stdout.getvalue())
+            self.assertEqual(report["status"], "verified_for_training")
+            self.assertEqual(
+                report["samples"], {"train": 2, "validation": 1, "evaluation": 3}
+            )
+
+    def test_train_prepared_publishes_private_inactive_candidate(self):
+        from model.training.prepared_training import verify_candidate_seal
+
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            with contextlib.redirect_stdout(io.StringIO()):
+                self._approve_fixture(fixture)
+            with (
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=self._fake_prepared_fit,
+                ) as fit,
+                contextlib.redirect_stdout(io.StringIO()) as stdout,
+            ):
+                self._train_fixture(fixture)
+
+            run = json.loads((fixture.run_dir / "run.json").read_text())
+            candidate = fixture.run_dir / "candidate"
+            self.assertEqual(run["status"], "pending_quality_review")
+            self.assertEqual(run["candidate_dir"], "candidate")
+            self.assertEqual(stat.S_IMODE(candidate.stat().st_mode), 0o700)
+            seal = verify_candidate_seal(candidate)
+            self.assertEqual(
+                run["candidate_sha256"],
+                hashlib.sha256(
+                    (candidate / "candidate-seal.json").read_bytes()
+                ).hexdigest(),
+            )
+            metadata = json.loads((candidate / "adapter.json").read_text())
+            self.assertFalse(metadata["active"])
+            self.assertEqual(metadata["quality_status"], "pending_review")
+            self.assertEqual(metadata["approval_sha256"], seal["approval_sha256"])
+            recall = json.loads(
+                (candidate / "evaluation" / "training-recall.json").read_text()
+            )
+            self.assertFalse(recall["automatic_checks_establish_quality"])
+            self.assertNotIn("Source passage", stdout.getvalue())
+            self.assertFalse((fixture.run_dir / ".candidate.training").exists())
+            self.assertEqual(fit.call_count, 1)
+
+    def test_train_prepared_recovers_after_publish_and_rejects_new_config(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            with contextlib.redirect_stdout(io.StringIO()):
+                self._approve_fixture(fixture)
+            from model.training import folder_workflow
+
+            original_atomic_json = folder_workflow._atomic_json
+
+            def interrupt_final_status(path, value):
+                if value.get("status") == "pending_quality_review":
+                    raise KeyboardInterrupt("after candidate publication")
+                return original_atomic_json(path, value)
+
+            with (
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=self._fake_prepared_fit,
+                ),
+                patch(
+                    "model.training.folder_workflow._atomic_json",
+                    side_effect=interrupt_final_status,
+                ),
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                self._train_fixture(fixture)
+            self.assertTrue((fixture.run_dir / "candidate").is_dir())
+            self.assertEqual(
+                json.loads((fixture.run_dir / "run.json").read_text())["status"],
+                "training",
+            )
+
+            with (
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=AssertionError("recovery must not retrain"),
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                self._train_fixture(fixture)
+            self.assertEqual(
+                json.loads((fixture.run_dir / "run.json").read_text())["status"],
+                "pending_quality_review",
+            )
+            with self.assertRaisesRegex(ValueError, "config"):
+                self._train_fixture(fixture, "--epochs", "4")
+
+    def test_train_prepared_cleans_interrupted_unpublished_candidate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            with contextlib.redirect_stdout(io.StringIO()):
+                self._approve_fixture(fixture)
+            staging = fixture.run_dir / ".candidate.training"
+            candidate = fixture.run_dir / "candidate"
+            original_replace = Path.replace
+
+            def interrupt_publication(path, target):
+                if path == staging and target == candidate:
+                    raise KeyboardInterrupt("before candidate publication")
+                return original_replace(path, target)
+
+            with (
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=self._fake_prepared_fit,
+                ),
+                patch.object(type(staging), "replace", new=interrupt_publication),
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                self._train_fixture(fixture)
+
+            self.assertFalse(staging.exists())
+            self.assertFalse(candidate.exists())
+            run = json.loads((fixture.run_dir / "run.json").read_text())
+            self.assertEqual(run["status"], "training_failed")
+            self.assertEqual(run["error"], "KeyboardInterrupt")
+
+    def test_train_prepared_rechecks_sources_before_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            with contextlib.redirect_stdout(io.StringIO()):
+                self._approve_fixture(fixture)
+
+            def mutate_after_training(*args, **kwargs):
+                summary = self._fake_prepared_fit(*args, **kwargs)
+                source = fixture.input_dir / "author-1.md"
+                source.write_bytes(source.read_bytes() + b"\n")
+                return summary
+
+            with (
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=mutate_after_training,
+                ),
+                self.assertRaisesRegex(ValueError, "source manifest"),
+            ):
+                self._train_fixture(fixture)
+
+            self.assertFalse((fixture.run_dir / ".candidate.training").exists())
+            self.assertFalse((fixture.run_dir / "candidate").exists())
+            run = json.loads((fixture.run_dir / "run.json").read_text())
+            self.assertEqual(run["status"], "training_failed")
+
+    def test_train_prepared_remains_idempotent_after_complete_quality_review(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = PreparationFixture(Path(temporary))
+            with contextlib.redirect_stdout(io.StringIO()):
+                self._approve_fixture(fixture)
+            with (
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=self._fake_prepared_fit,
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                self._train_fixture(fixture)
+
+            evaluation = fixture.run_dir / "candidate" / "evaluation"
+            reviews = Path(temporary) / "completed-reviews.jsonl"
+            rows = [
+                json.loads(line)
+                for line in (evaluation / "reviews.template.jsonl")
+                .read_text()
+                .splitlines()
+            ]
+            for row in rows:
+                row.update(
+                    grounding_passed=True,
+                    facts_preserved=True,
+                    conflicts_handled=True,
+                    safety_passed=True,
+                )
+            reviews.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                main(
+                    [
+                        "review",
+                        "--run-dir",
+                        str(evaluation),
+                        "--reviews-file",
+                        str(reviews),
+                    ]
+                )
+            self.assertEqual(
+                json.loads(stdout.getvalue())["status"],
+                "quality_passed_pending_style_choice",
+            )
+            for name in (
+                "final-report.json",
+                "blind-comparisons.json",
+                "blind-mapping.json",
+            ):
+                self.assertEqual(
+                    stat.S_IMODE((evaluation / name).stat().st_mode), 0o600
+                )
+
+            with (
+                patch(
+                    "model.training.folder_workflow.fit_candidate",
+                    side_effect=AssertionError("reviewed candidate must not retrain"),
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                self._train_fixture(fixture)
+
     def test_approve_preparation_seals_without_model_or_training(self):
         with tempfile.TemporaryDirectory() as temporary:
             fixture = PreparationFixture(Path(temporary))
@@ -316,6 +570,75 @@ class FolderWorkflowTest(unittest.TestCase):
             ]
         )
 
+    def _train_fixture(self, fixture, *extra):
+        return main(
+            [
+                "train-prepared",
+                "--run-dir",
+                str(fixture.run_dir),
+                *extra,
+            ]
+        )
+
+    def _fake_prepared_fit(
+        self,
+        args,
+        training,
+        validation,
+        cases,
+        output,
+        *,
+        metadata_extra=None,
+        **kwargs,
+    ):
+        from model.evaluation.result import EvaluationResult
+        from model.evaluation.runner import write_evaluation
+
+        self.assertTrue(training)
+        self.assertTrue(validation)
+        self.assertEqual(len(cases), 3)
+        self.assertEqual(args.model, "fixture")
+        self.assertEqual(args.base_revision, "revision")
+        self.assertFalse(kwargs["emit_summary"])
+        self.assertTrue(kwargs["strict_evaluation_length"])
+        output.mkdir()
+        (output / "adapter.pt").write_bytes(b"adapter")
+        (output / "metrics.json").write_text('{"selected_epoch":1}\n')
+        tokenizer = output / "tokenizer"
+        tokenizer.mkdir()
+        (tokenizer / "tokenizer.json").write_text("{}\n")
+        metadata = {
+            **(metadata_extra or {}),
+            "format_version": 1,
+            "status": "candidate",
+            "quality_status": "pending_review",
+            "active": False,
+            "base_model": args.model,
+            "base_revision": args.base_revision,
+        }
+        (output / "adapter.json").write_text(
+            json.dumps(metadata, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        settings = {"max_new_tokens": args.max_new_tokens, "do_sample": False}
+        results = [
+            EvaluationResult(
+                case.id,
+                approach,
+                case.source_text,
+                args.model,
+                settings,
+            )
+            for case in cases
+            for approach in ("prompt_baseline", "lora")
+        ]
+        write_evaluation(output / "evaluation", list(cases), results)
+        return {
+            "candidate": str(output),
+            "evaluation": str(output / "evaluation"),
+            "status": "pending_review",
+            "selected_epoch": 1,
+        }
+
     def test_invalid_extraction_leaves_report_without_candidate(self):
         from unittest.mock import MagicMock
 
@@ -406,6 +729,68 @@ class FolderWorkflowTest(unittest.TestCase):
             )
             self.assertEqual(report["status"], "dry_run")
             self.assertEqual(list(Path(tmp).iterdir()), [root])
+
+    def test_prepare_folder_binds_relative_local_model_to_original_cwd(self):
+        from unittest.mock import MagicMock
+
+        from model.training.folder_data import PreparedFolderDraft, StyleProfile
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            writing = root / "writing"
+            self.preparation_documents(writing)
+            local_model = root / "local-model"
+            local_model.mkdir()
+            output = root / "prepared"
+            model = MagicMock()
+            model.config._commit_hash = "local-revision"
+            empty_draft = PreparedFolderDraft(
+                style_profile=StyleProfile(
+                    tone=("차분하게 설명한다",),
+                    organization=("핵심을 먼저 제시한다",),
+                    sentence_style=("짧은 설명문을 사용한다",),
+                    formatting=("필요할 때 목록을 사용한다",),
+                ),
+                style_sources=(),
+                facts=(),
+                skipped=(),
+                automatic_checks=(),
+            )
+            with (
+                contextlib.chdir(root),
+                patch(
+                    "model.training.folder_workflow.load_base_model",
+                    return_value=(MagicMock(), model),
+                ) as loader,
+                patch(
+                    "model.training.folder_workflow.prepare_folder_draft",
+                    return_value=empty_draft,
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                main(
+                    [
+                        "prepare-folder",
+                        "--input-dir",
+                        str(writing),
+                        "--output-dir",
+                        str(output),
+                        "--model",
+                        "local-model",
+                    ]
+                )
+
+            canonical = str(local_model.resolve())
+            loader.assert_called_once_with(canonical, None)
+            self.assertEqual(
+                json.loads((output / "run.json").read_text())["model"], canonical
+            )
+            self.assertEqual(
+                json.loads((output / "preparation.json").read_text())[
+                    "extraction_model"
+                ],
+                canonical,
+            )
 
     def test_prepare_folder_rejects_invalid_layout_before_model(self):
         with tempfile.TemporaryDirectory() as tmp:

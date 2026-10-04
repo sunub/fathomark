@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from model.training.cli import main
@@ -45,6 +46,215 @@ def write_rows(path, rows):
 
 
 class TrainingWorkflowTest(unittest.TestCase):
+    def test_fit_candidate_honors_revision_and_can_return_without_output(self):
+        import torch
+
+        from model.training.workflow import fit_candidate
+
+        args = SimpleNamespace(
+            model="remote/model",
+            base_revision="recorded-revision",
+            device="cpu",
+            epochs=1,
+            learning_rate=1e-4,
+            accumulation_steps=1,
+            seed=7,
+            max_length=32,
+            max_new_tokens=4,
+            rank=2,
+            alpha=4.0,
+        )
+        model = SimpleNamespace(
+            config=SimpleNamespace(_commit_hash="recorded-revision"),
+            parameters=lambda: iter([SimpleNamespace(dtype=torch.float32)]),
+        )
+        output = Path("/private/staging-candidate")
+        with (
+            patch(
+                "model.training.workflow.load_base_model",
+                return_value=(object(), model),
+            ) as loader,
+            patch(
+                "model.training.workflow.build_supervised_samples",
+                side_effect=[["training"], ["validation"]],
+            ),
+            patch("model.training.workflow._case_manifest", return_value=[]),
+            patch("model.training.workflow._results", side_effect=[[], []]),
+            patch("model.training.workflow.inject_lora", return_value=["q_proj"]),
+            patch(
+                "model.training.workflow.fit",
+                return_value={"selected_epoch": 1},
+            ),
+            patch("model.training.workflow.save_candidate"),
+            patch(
+                "model.training.workflow.write_evaluation",
+                return_value={"status": "pending_review"},
+            ),
+            contextlib.redirect_stdout(io.StringIO()) as stdout,
+        ):
+            summary = fit_candidate(
+                args,
+                [object()],
+                [object()],
+                [object()],
+                output,
+                emit_summary=False,
+            )
+
+        loader.assert_called_once_with(
+            "remote/model", torch.device("cpu"), revision="recorded-revision"
+        )
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(
+            summary,
+            {
+                "candidate": str(output),
+                "evaluation": str(output / "evaluation"),
+                "status": "pending_review",
+                "selected_epoch": 1,
+            },
+        )
+
+    def test_fit_candidate_preserves_legacy_summary_output(self):
+        import torch
+
+        from model.training.workflow import fit_candidate
+
+        args = SimpleNamespace(
+            model="remote/model",
+            device=None,
+            epochs=1,
+            learning_rate=1e-4,
+            accumulation_steps=1,
+            seed=7,
+            max_length=32,
+            max_new_tokens=4,
+            rank=2,
+            alpha=4.0,
+        )
+        model = SimpleNamespace(
+            config=SimpleNamespace(_commit_hash=None),
+            parameters=lambda: iter([SimpleNamespace(dtype=torch.float32)]),
+        )
+        output = Path("candidate")
+        with (
+            patch(
+                "model.training.workflow.load_base_model",
+                return_value=(object(), model),
+            ) as loader,
+            patch(
+                "model.training.workflow.build_supervised_samples",
+                side_effect=[["training"], ["validation"]],
+            ),
+            patch("model.training.workflow._case_manifest", return_value=[]),
+            patch("model.training.workflow._results", side_effect=[[], []]),
+            patch("model.training.workflow.inject_lora", return_value=["q_proj"]),
+            patch(
+                "model.training.workflow.fit",
+                return_value={"selected_epoch": 1},
+            ),
+            patch("model.training.workflow.save_candidate"),
+            patch(
+                "model.training.workflow.write_evaluation",
+                return_value={"status": "pending_review"},
+            ),
+            contextlib.redirect_stdout(io.StringIO()) as stdout,
+        ):
+            summary = fit_candidate(args, [object()], [object()], [object()], output)
+
+        loader.assert_called_once_with("remote/model", None)
+        self.assertEqual(json.loads(stdout.getvalue()), summary)
+
+    def test_fit_candidate_rejects_overlength_prepared_evaluation_prompt(self):
+        from model.evaluation.case import EvaluationCase
+        from model.training.workflow import fit_candidate
+
+        args = SimpleNamespace(
+            model="remote/model",
+            device=None,
+            epochs=1,
+            learning_rate=1e-4,
+            accumulation_steps=1,
+            seed=7,
+            max_length=8,
+            max_new_tokens=4,
+            rank=2,
+            alpha=4.0,
+        )
+        tokenizer = SimpleNamespace(
+            apply_chat_template=lambda *args, **kwargs: "long prompt",
+            encode=lambda *args, **kwargs: list(range(9)),
+        )
+        case = EvaluationCase(
+            id="held-out",
+            request="write",
+            source_text="fact",
+            style="style",
+            expected_facts=("fact",),
+        )
+        with (
+            patch(
+                "model.training.workflow.load_base_model",
+                return_value=(tokenizer, object()),
+            ),
+            patch(
+                "model.training.workflow.build_supervised_samples",
+                side_effect=[["training"], ["validation"]],
+            ),
+            patch("model.training.workflow._results") as results,
+            self.assertRaisesRegex(ValueError, "held-out.*9 tokens"),
+        ):
+            fit_candidate(
+                args,
+                [object()],
+                [object()],
+                [case],
+                Path("candidate"),
+                strict_evaluation_length=True,
+            )
+        results.assert_not_called()
+
+    def test_fit_candidate_rejects_loaded_revision_drift_before_generation(self):
+        from model.training.workflow import fit_candidate
+
+        args = SimpleNamespace(
+            model="remote/model",
+            base_revision="approved-revision",
+            device=None,
+            epochs=1,
+            learning_rate=1e-4,
+            accumulation_steps=1,
+            seed=7,
+            max_length=32,
+            max_new_tokens=4,
+            rank=2,
+            alpha=4.0,
+        )
+        model = SimpleNamespace(
+            config=SimpleNamespace(_commit_hash="different-revision"),
+            parameters=lambda: iter([SimpleNamespace(dtype="float32")]),
+        )
+        with (
+            patch(
+                "model.training.workflow.load_base_model",
+                return_value=(object(), model),
+            ),
+            patch(
+                "model.training.workflow.build_supervised_samples",
+                side_effect=[["training"], ["validation"]],
+            ),
+            patch("model.training.workflow._results") as results,
+            self.assertRaisesRegex(ValueError, "revision differs"),
+        ):
+            fit_candidate(
+                args,
+                [object()],
+                [object()],
+                [],
+                Path("candidate"),
+            )
+        results.assert_not_called()
+
     def test_evaluation_rejects_original_trained_passage(self):
         from model.evaluation.case import EvaluationCase
         from model.training.supervised import SupervisedExample

@@ -164,6 +164,7 @@ class TrainerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "supervised"
             save_candidate(out, model, {"objective": "supervised_response"}, {})
+            self.assertEqual(out.stat().st_mode & 0o777, 0o700)
             metadata, _ = read_candidate(out)
             self.assertEqual(metadata["objective"], "supervised_response")
             with self.assertRaises(ValueError):
