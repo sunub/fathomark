@@ -52,16 +52,16 @@ _Avoid_: Arbitrary truncation, simple summary
 The Fathomark-owned execution environment that governs model selection, tool access, context budgets, permissions, cancellation, retries, provenance, and observable run state. It may use LangChain internally without delegating these product policies to LangChain.
 _Avoid_: Model, chatbot, synonym for LangChain
 
-**Local-First Execution**:
-The policy that model execution, Vault retrieval, and context preparation use local providers by default, while external providers and network tools require explicit user choice.
-_Avoid_: Local-only operation, cloud-first execution
+**Data Egress Consent**:
+The explicit user choice, shown before any request, that allows Vault content to be sent to a hosted model provider or network tool, including what will be sent. Vault retrieval and context preparation stay on the user's machine.
+_Avoid_: Silent upload, blanket permission, local-only operation
 
 **Model Provider**:
 A replaceable adapter through which the Agent Harness lists models, streams responses, reports usage, and handles cancellation.
 _Avoid_: Agent, model runtime policy
 
 **Supported Local Model**:
-A provider-visible local model that passes Fathomark's measured responsiveness and native tool-calling gates. Being installable or listed by a provider does not by itself make a model supported.
+An optional provider-visible local model that passes Fathomark's measured responsiveness and native tool-calling gates. Being installable or listed by a provider does not by itself make a model supported.
 _Avoid_: Any local model, provider-listed model
 
 **Tool-Call Reliability**:
@@ -80,6 +80,6 @@ _Avoid_: Model load time, raw token throughput
 A stable, typed pointer from a generated claim to either a Vault-relative note location or a canonical approved external source location.
 _Avoid_: Generic citation, untyped filename-only label
 
-**Training Workspace**:
-The optional Python environment used to prepare datasets, train and evaluate LoRA adapters, and export model artifacts.
-_Avoid_: Plugin runtime, user installation requirement
+**Career Writing**:
+The first concrete job: turning a job posting or application question into resume bullets and essay answers that use the user's own recorded experience, cited to notes, in the user's own voice. Run as a fixed sequence of retrieve, cite, draft, verify, preview, and approve.
+_Avoid_: Autonomous agent loop, unsupported experience claims, model training

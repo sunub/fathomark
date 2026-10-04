@@ -16,13 +16,17 @@ Obsidian remains the sole product surface. Fathomark is not a VS Code extension,
 
 Fathomark helps a user understand and extend a note using the smallest sufficient set of evidence and the user's intended writing style, with every applied change remaining reviewable and reversible.
 
+## Primary use case: career writing
+
+The first concrete job is turning a job posting or an application question into resume bullets and essay answers that use the user's own experience, recorded in their Vault, in the user's own voice. The run is a fixed sequence rather than an open agent loop: take the posting or question, retrieve candidate experience, select and cite evidence, draft in the chosen style, check that every claim has a supporting note, preview, and apply only after approval. An experience claim with no supporting note is shown as unsupported instead of being written as fact. See [ADR 0007](./adr/0007-grounded-career-writing-with-hosted-models.md).
+
 ## Scope status
 
-The MVP is an evolving product hypothesis rather than a frozen specification. Capabilities remain open to revision as their contribution to the product promise is tested. Writing Style Personalization is a required product outcome; its implementation mechanism remains an open decision.
+The MVP is an evolving product hypothesis rather than a frozen specification. Capabilities remain open to revision as their contribution to the product promise is tested. Writing Style Personalization is a required product outcome, implemented with the user's own selected writing as examples rather than model training (ADR 0007).
 
 ## Primary user
 
-A desktop Obsidian user who keeps research, technical notes, project knowledge, or long-form writing in a local Vault and wants to use a local LLM without surrendering control of source material or note changes.
+A desktop Obsidian user who keeps research, technical notes, project knowledge, or long-form writing in a local Vault and wants AI help that works from their own notes without surrendering control of source material or note changes.
 
 ## Initial experience: Vault Chat
 
@@ -30,7 +34,7 @@ A desktop Obsidian user who keeps research, technical notes, project knowledge, 
 Current note or selection
     → bounded Vault retrieval and optional Wikipedia Research
     → source-linked context packet
-    → local model with read-only tools
+    → model (hosted with consent, or local) with read-only tools
     → streamed answer and sources
     → insertion preview
     → explicit approve or discard
@@ -41,7 +45,8 @@ Current note or selection
 - Right-side Obsidian view
 - Sidebar agent interaction with visible run state, tool activity, stop, retry, and recovery
 - Current note and selection awareness
-- Local model configuration and health state
+- Model provider configuration and health state: a hosted provider with the user's own key and explicit consent, or a local provider
+- Career writing flow: posting or question in, cited resume bullets and essay answers out
 - Streaming response, stop, timeout, and retry
 - Read-only `search_vault` and `read_note` tools
 - Read-only Wikipedia search and page-reading tools
@@ -56,7 +61,6 @@ Current note or selection
 ## MVP non-goals
 
 - Unrestricted general web search
-- External model-provider UI
 - Multi-agent orchestration
 - Autonomous background work
 - Automatic multi-note edits
@@ -65,7 +69,7 @@ Current note or selection
 - Semantic vector retrieval
 - Mobile support
 - Product-owned companion process
-- LoRA as a predetermined personalization mechanism
+- Per-user model training or fine-tuning
 
 ## Product principles
 
@@ -73,7 +77,7 @@ Current note or selection
 2. **Bounded context** — every model request has an explicit budget.
 3. **Visible agency** — users can see tool use, waiting, cancellation, and failure.
 4. **Read first, write with approval** — Vault reads are routine; mutations are proposed.
-5. **Local by default** — external providers and network tools are conscious opt-ins.
+5. **Data leaves only with consent** — sending Vault content to a hosted provider or any network tool is a conscious opt-in that shows what will be sent; local providers stay supported.
 6. **Harness over model magic** — reliability comes from policy, state, tests, and recovery rather than hidden prompt behavior.
 7. **Preserve evidence conflicts** — Vault evidence governs the user's projects and intent, Wikipedia evidence governs general external facts, and disagreements remain visible with both sources.
 8. **Minimize research egress** — Wikipedia queries contain only the public concepts needed for research and never disclose terms discovered only in the Vault.
@@ -95,15 +99,15 @@ Current note or selection
 13. Wikipedia Research never expands into unrestricted browsing, and every external claim retains a visible Wikipedia source.
 14. When Vault and Wikipedia evidence disagree, the answer presents the conflict and both sources instead of silently choosing one.
 15. Every Wikipedia query is visible to the user and excludes Vault-only names, phrases, paths, and metadata.
-16. On the representative 16 GB machine, Cold First Event Latency is at most 5 seconds at p95 for the default model; a candidate exceeding 8 seconds at p95 is rejected. With the model already loaded, the p95 target is 2 seconds.
+16. When a local provider is used on the representative 16 GB machine, Cold First Event Latency is at most 5 seconds at p95; a candidate exceeding 8 seconds at p95 is not supported. With the model already loaded, the p95 target is 2 seconds. Hosted providers are measured on time to first visible output.
 17. The default model uses the provider's native tool/function-calling protocol and produces schema-bound arguments; prompt-only JSON emulation is not an accepted primary path.
 18. Across at least 200 Fathomark tool scenarios, the default model selects the correct action on at least 95% of first attempts, produces schema-valid arguments on at least 98% of first attempts and 99.5% after at most one repair, causes zero disallowed tool executions, and enters zero non-terminating repeated-call loops.
+19. For a fixed set of real application questions, retrieval places a note that records the relevant experience among the top results, and a draft marks as unsupported any experience claim that no note supports.
+20. Sending Vault content to a hosted provider requires explicit consent that shows what will be sent.
 
 ## Deferred capabilities
 
 - General web research beyond Wikipedia
-- External model providers with Vault-content egress consent
 - Embedding and reranking after lexical retrieval is measured
-- LoRA adapters when evaluation shows they improve personalization or stable Obsidian workflow behavior over lighter-weight methods
 - Reusable workflows, checkpoints, and bounded multi-step runs
 - Companion engine only if profiling proves the plugin boundary insufficient

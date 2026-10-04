@@ -1,12 +1,12 @@
-# Local Model Selection and Evaluation
+# Model Selection and Evaluation
 
 ## Status
 
-This document consolidates the model-selection decisions reached during product design. It defines what Fathomark needs from a local model before naming a specific model. Items under **Accepted criteria** are current product requirements. Items under **Open decisions** remain proposals and must not be treated as settled architecture.
+This document consolidates the model-selection decisions reached during product design. It defines what Fathomark needs from a model before naming a specific one. The model may be hosted (with the user's key and explicit consent) or local ([ADR 0007](./adr/0007-grounded-career-writing-with-hosted-models.md)); the latency, memory, and 16 GB baseline gates below apply to the optional local provider. Items under **Accepted criteria** are current product requirements. Items under **Open decisions** remain proposals and must not be treated as settled architecture.
 
 ## Workload to optimize
 
-Fathomark does not need a local model primarily for broad, deep reasoning. Its default model must reliably perform a bounded editor-agent workload:
+Fathomark does not need a model primarily for broad, deep reasoning. Its default model must reliably perform a bounded editor-agent workload:
 
 1. understand the current note, selection, and user request;
 2. decide whether to answer directly or call an approved Vault or Wikipedia tool;
@@ -76,13 +76,11 @@ The last two are Harness guarantees as well as evaluation outcomes. A model-gene
 
 ### Writing Style Personalization
 
-Writing in the user's intended voice and direction is a required product outcome. LoRA is not yet a required implementation mechanism. Prompted style profiles, retrieved examples, and LoRA adapters must eventually be compared against the same personalization evaluation rather than selected by assumption.
+Writing in the user's intended voice and direction is a required product outcome. It is implemented with prompting: writing the user explicitly selects is supplied as examples, optionally with a fact-free style profile. No per-user model is trained ([ADR 0007](./adr/0007-grounded-career-writing-with-hosted-models.md)). The product does not scan the Vault to infer a style.
 
-The current design direction is user-selected, on-device personalization. A text passage the user explicitly selects is treated as their intended style reference; the product does not scan the Vault to infer a writing style. The selected passage and explicit pairwise preferences may inform a local personalization profile and, when evaluation supports it, a user-specific LoRA candidate.
+Retrieval remains the canonical source for Vault facts and current external knowledge. Style examples are not a knowledge source and must not replace evidence retrieval. Because a selected example can contain factual content, evaluation checks for unsupported recall or reproduction of facts that are absent from the current request and evidence. The style signal and factual grounding are evaluated separately.
 
-Retrieval remains the canonical source for Vault facts and current external knowledge. A style adapter is not a knowledge source and must not replace evidence retrieval. Because a selected style passage can contain factual content, candidate adapters must be evaluated for unsupported recall or reproduction of facts that are absent from the current request and evidence. The intended style signal and factual grounding are evaluated separately.
-
-Personalization comparisons use the same request, evidence, base model, and generation settings; only the personalization method changes. Responses that fail grounding or safety checks do not proceed to style preference comparison. Eligible responses are presented in randomized, method-blind order with choices for either response, no meaningful difference, or neither. Preference feedback records are not sufficient by themselves to update the active adapter: a candidate must first pass held-out evaluation, then be explicitly applied by the user. Detailed rubrics, thresholds, retention and deletion behavior, and the initial LoRA objective remain open decisions. See [ADR 0006](./adr/0006-user-selected-style-personalization.md).
+Personalization comparisons use the same request, evidence, model, and generation settings; only the personalization method changes. Responses that fail grounding or safety checks do not proceed to style preference comparison. Eligible responses are presented in randomized, method-blind order with choices for either response, no meaningful difference, or neither. Detailed rubrics, thresholds, and retention and deletion behavior remain open decisions. See [ADR 0006](./adr/0006-user-selected-style-personalization.md).
 
 ## Local-memory implications
 
@@ -127,7 +125,6 @@ The following dimensions are required before selecting a named default model, bu
 - resident memory, peak memory, load/unload policy, and acceptable swap pressure;
 - quantization format and quality loss;
 - one official default model versus multiple hardware tiers;
-- LoRA and QLoRA training feasibility, adapter size, and runtime support;
 - commercial-use and redistribution license terms;
 - Ollama, llama.cpp, and LM Studio compatibility; and
 - the initial provider contract: Ollama native API or a generic OpenAI-compatible API.
@@ -140,7 +137,7 @@ When the remaining gates are defined, model research should proceed in this orde
 2. Measure cold and warm latency plus full-system memory on the representative machine.
 3. Run the 200-scenario Tool-Call Reliability suite.
 4. Measure grounding, Korean writing, and style-personalization quality on fixed fixtures.
-5. Compare lighter prompting/retrieval personalization against LoRA only after the non-training baseline is known.
+5. Compare prompting and retrieved-example personalization methods against each other on the same fixtures.
 6. Select one default model; keep a second model only as an evaluation reference unless measured user value justifies another supported tier.
 
 No named model should be documented as the default until it passes this sequence.

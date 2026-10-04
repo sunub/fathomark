@@ -2,7 +2,7 @@
 
 **Grounded intelligence for your notes.**
 
-Fathomark is a desktop-only, local-first AI workspace for Obsidian. Its first experience, **Vault Chat**, brings the visible, tool-using sidebar workflow familiar from modern editor agents into Obsidian: it uses the current note and selected evidence to produce source-grounded answers and proposes note changes for explicit user approval.
+Fathomark is a desktop-only AI workspace for Obsidian. Its first experience, **Vault Chat**, brings the visible, tool-using sidebar workflow familiar from modern editor agents into Obsidian: it uses the current note and selected evidence to produce source-grounded answers and proposes note changes for explicit user approval. Its first job is career writing: turning a job posting or application question into resume bullets and essay answers that cite your own notes and read like your own writing.
 
 ## Status
 
@@ -10,12 +10,14 @@ Phase 0. The plugin builds, opens a sidebar view, streams a fake response throug
 
 ## Network use
 
-Fathomark is local-first, and both of its network paths are listed here rather than buried:
+Both of today's network paths are listed here rather than buried:
 
-- **A local model provider over localhost.** You install and run it yourself — Ollama, llama.cpp, LM Studio or another. Fathomark never sends vault content anywhere else.
+- **A local model provider over localhost.** You install and run it yourself — Ollama, llama.cpp, LM Studio or another. Today Fathomark sends vault content nowhere else.
 - **Wikipedia, only if you turn Wikipedia Research on.** It is off by default. Queries carry only public topic terms and never names, phrases, paths or metadata found only in your vault, and every query sent is visible in the run's tool activity.
 
-There is no telemetry, no account, no external model provider, and no general web access.
+A hosted model provider, using your own API key, is planned ([ADR 0007](docs/adr/0007-grounded-career-writing-with-hosted-models.md)). It is not implemented yet. When it ships, vault content will leave your machine only after consent that shows what will be sent.
+
+There is no telemetry, no account, and no general web access.
 
 ## Product boundaries
 
@@ -23,10 +25,10 @@ There is no telemetry, no account, no external model provider, and no general we
 - VS Code-style sidebar agents are an interaction reference, not an additional target platform or extension.
 - The initial Agent Harness runs inside the desktop plugin.
 - LangChain supports the model, message, tool, streaming, and agent-loop layer inside the product-owned harness; it does not define product permissions or lifecycle.
-- Ollama, llama.cpp, or another local model provider runs separately and is called over a local API.
+- The model sits behind a replaceable provider adapter: a local provider such as Ollama or llama.cpp called over a local API today, and a hosted provider with your own key and explicit consent planned.
 - There is no MCP server, general-purpose CLI product, or product-owned companion daemon in the initial architecture.
-- Local execution is the default. MVP network access is an explicit opt-in limited to bounded Wikipedia Research; other external providers and network tools are deferred.
-- The current proposal places Python and PyTorch in an optional LoRA training workspace rather than the plugin runtime; the personalization mechanism is still under evaluation.
+- Vault content leaves your machine only after explicit consent that shows what will be sent. Network access is limited to a hosted model provider you choose and bounded Wikipedia Research; other network tools are deferred.
+- Fathomark does not train or fine-tune models. Personalization uses your own selected writing as examples ([ADR 0007](docs/adr/0007-grounded-career-writing-with-hosted-models.md)).
 
 ## MVP
 
@@ -34,7 +36,7 @@ Vault Chat lets a user:
 
 1. Ask a question from the current note or selection.
 2. Search and read only the needed Vault evidence and, when explicitly enabled, bounded Wikipedia evidence.
-3. Stream a source-linked answer from a local LLM in the selected writing style.
+3. Stream a source-linked answer from the configured model in the selected writing style.
 4. Review the sources and tool activity.
 5. Preview a proposed insertion and apply it only after approval.
 
@@ -56,7 +58,7 @@ The repository root is the plugin's publishing surface: `manifest.json` and `ver
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Technology stack](./docs/TECH_STACK.md)
 - [Plugin workspace, build and release](./docs/PLUGIN.md)
-- [Local model selection and evaluation](./docs/MODEL_SELECTION.md)
+- [Model selection and evaluation](./docs/MODEL_SELECTION.md)
 - [Roadmap](./docs/ROADMAP.md)
 - [Domain language](./CONTEXT.md)
 - [Next session](./docs/NEXT_SESSION.md)

@@ -19,16 +19,17 @@
 - Platform: desktop-only Obsidian plugin
 - Interaction model: a modern editor-style sidebar agent adapted to Vault evidence and approval-based note changes
 - Product boundary: Obsidian is the sole surface; VS Code is a UX reference, not a target extension; there is no MCP server or user-facing CLI
-- Runtime boundary: plugin-contained Agent Harness; local LLM runs through a separate local provider
+- Runtime boundary: plugin-contained Agent Harness; the model sits behind a replaceable provider adapter (hosted with the user's key and explicit consent, or a separate local provider)
 - Framework boundary: LangChain supplies internal model, message, tool, streaming, and agent-loop mechanics; Fathomark owns policy, state, budgets, provenance, lifecycle, and recovery
-- Default policy: local-first
+- First job: career writing — job posting or application question in, cited resume bullets and essay answers out, in the user's voice (ADR 0007). Fixed-step workflow, not an open agent loop
+- Data policy: Vault content leaves the machine only after explicit consent that shows what will be sent
 - MVP tools: `search_vault`, `read_note`, and bounded Wikipedia search/page reading with explicit network permission
 - Default-model latency gates: cold first event p95 target 5 seconds, reject above 8 seconds; warm target 2 seconds on a representative 16 GB machine
 - Default-model protocol: native tool/function calling; prompt-only JSON emulation is not supported
 - Tool-call evaluation: at least 200 scenarios with the thresholds in `docs/MODEL_SELECTION.md`
 - Writes: preview and approval only
-- Personalization: user-style output is required; LoRA versus lighter-weight mechanisms remains open
-- Training boundary: a separate optional Python/PyTorch workspace is proposed in ADR 0003 but not yet accepted
+- Personalization: the user's own selected writing used as examples; no model training. ADR 0003 is superseded and `model/` only records the failed LoRA experiments
+- Critical risk: retrieval. Validate by hand on real application questions before adding features (Phase 3 in `docs/ROADMAP.md`)
 - UI implementation: React on the `design-system` package, decided in ADR 0005
 - Implementation: Phase 0 skeleton in place — the plugin builds, opens a sidebar view, streams a fake response through the harness, cancels it, and unloads. No real provider and no registered tool yet. `main.js` is 286 KB minified, which is the pre-LangChain baseline.
 - Repository: the root is now the plugin's publishing surface (`manifest.json`, `versions.json`, release workflow). `design-system/` still carries its own git repository and is excluded from the root one, so a clone cannot build the plugin — this must be resolved before submitting to the community directory.
@@ -55,7 +56,7 @@ The context decision must be tested against the actual user flow, Korean tokeniz
 ```text
 Read README.md, CONTEXT.md, docs/PRODUCT.md, docs/ARCHITECTURE.md, docs/TECH_STACK.md, docs/MODEL_SELECTION.md, docs/ROADMAP.md, and all docs/adr files before proposing changes.
 
-Fathomark is a desktop-only, local-first Obsidian agent workspace. Its MVP is Vault Chat: a modern editor-style sidebar agent experience adapted to source-grounded answers from the current note, selected Vault evidence, and bounded Wikipedia Research, with preview-and-approve insertion. Obsidian is the sole product surface; VS Code is an interaction reference, not a target extension. The initial Agent Harness runs inside the plugin and uses LangChain only for internal model, message, tool, streaming, and agent-loop mechanics; Fathomark retains run state, permissions, context budgets, provenance, lifecycle, and recovery. The local LLM is a separate provider. There is no MCP server, companion daemon, unrestricted general web search, external model provider UI, semantic vector database, or autonomous multi-note editing in the MVP.
+Fathomark is a desktop-only Obsidian agent workspace whose first job is career writing grounded in the user's own notes. Its MVP is Vault Chat: a modern editor-style sidebar agent experience adapted to source-grounded answers from the current note, selected Vault evidence, and bounded Wikipedia Research, with preview-and-approve insertion. Obsidian is the sole product surface; VS Code is an interaction reference, not a target extension. The initial Agent Harness runs inside the plugin and uses LangChain only for internal model, message, tool, streaming, and agent-loop mechanics; Fathomark retains run state, permissions, context budgets, provenance, lifecycle, and recovery. The model is a replaceable provider: hosted with the user's key and explicit egress consent, or a separate local one. There is no MCP server, companion daemon, unrestricted general web search, semantic vector database, per-user model training, or autonomous multi-note editing in the MVP.
 
 The Phase 0 skeleton exists: plugin/ builds to main.js and styles.css, the Chat UI renders on the design-system package, and the Agent Harness streams a deterministic fake provider through its run states with cancellation. LangChain is not in the bundle yet, no tool is registered, and no real provider is connected.
 

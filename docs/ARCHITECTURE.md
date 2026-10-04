@@ -11,12 +11,13 @@ Obsidian Desktop
     ├── Vault Tool Registry
     ├── Obsidian Adapters
     ├── Model Provider Adapter
-    │       └── localhost → Ollama / llama.cpp / LM Studio
+    │       ├── localhost → Ollama / llama.cpp / LM Studio
+    │       └── hosted provider (planned; explicit consent, user's key)
     └── Wikipedia Research Adapter
             └── network → Wikipedia
 ```
 
-The initial product contains no MCP transport and no product-owned companion daemon. The local model provider is a separately installed runtime.
+The initial product contains no MCP transport and no product-owned companion daemon. A local model provider is a separately installed runtime; a hosted provider is planned behind the same adapter (ADR 0007).
 
 ## Interaction boundary
 

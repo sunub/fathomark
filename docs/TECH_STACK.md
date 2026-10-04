@@ -51,59 +51,12 @@ LangChain does not own permissions, context selection, context budgets, approval
 
 Deep Agent frameworks and autonomous background runtimes are not required for MVP.
 
-## Local model runtime
+## Model providers
 
-The user runs a provider such as Ollama, llama.cpp, or LM Studio. Fathomark calls it over localhost. The initial adapter is still to be selected.
+Providers sit behind the product-owned `ModelProvider` adapter. A hosted provider is called with the user's own API key after explicit Data Egress Consent that shows what will be sent; the first hosted provider, its contract, and key storage are open decisions. A local provider such as Ollama, llama.cpp, or LM Studio is called over localhost and stays supported as an option. The initial adapter is still to be selected ([ADR 0007](./adr/0007-grounded-career-writing-with-hosted-models.md)).
 
-The default model must expose native tool/function calling through that adapter. Provider model discovery may list other models, but Fathomark support requires passing the product's latency and tool-call evaluation gates; prompt-only JSON emulation is not the default integration path.
+The default model must expose native tool/function calling through its adapter. Provider model discovery may list other models, but a local model is supported only after passing the product's latency and tool-call evaluation gates; prompt-only JSON emulation is not the default integration path.
 
-## Proposed optional training stack
+## Model training
 
-The current proposal keeps LoRA training as a developer workflow separated from the plugin runtime. ADR 0003 remains proposed until the first personalization objective and evaluation dataset are defined.
-
-```text
-Python 3.11 or 3.12
-PyTorch
-Transformers
-PEFT
-TRL
-Datasets
-Accelerate
-Safetensors
-```
-
-Possible repository location:
-
-```text
-training/
-├── pyproject.toml
-├── configs/
-├── datasets/
-├── scripts/
-│   ├── prepare_dataset.py
-│   ├── train_lora.py
-│   ├── evaluate.py
-│   └── export_adapter.py
-└── tests/
-```
-
-Under this proposal, the plugin does not require users to install Python and consumes adapters through the configured model provider.
-
-## LoRA scope
-
-Good training targets:
-
-- reliable tool selection and structured arguments
-- source-citation response format
-- propose-diff-before-write behavior
-- stable Markdown and frontmatter conventions
-- a chosen writing style
-
-Bad training targets:
-
-- changing Vault facts
-- current project documentation
-- web knowledge
-- context budgeting, retry, and permissions
-
-Knowledge belongs in retrieval and tools. Runtime reliability belongs in the Agent Harness.
+Fathomark does not train or fine-tune models. The earlier LoRA proposal (ADR 0003) is superseded; the `model/` directory records those experiments only. Knowledge belongs in retrieval and tools, style comes from the user's selected examples, and runtime reliability belongs in the Agent Harness.

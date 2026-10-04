@@ -15,7 +15,7 @@ fathomark/
 ├── LICENSE  README.md
 ├── plugin/              everything that ships
 ├── design-system/       the component library and Storybook
-├── model/               the optional Python training workspace (ADR 0003)
+├── model/               record of the abandoned LoRA experiments (ADR 0003 superseded by ADR 0007)
 └── docs/
 ```
 

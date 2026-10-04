@@ -39,38 +39,40 @@ Exit condition: fixed fixture questions return the expected Vault- and Wikipedia
 ## Phase 2 — Approved insertion
 
 - Define the user-selected writing material and Writing Style Profile flow
-- Implement and evaluate a non-training personalization baseline
+- Implement and evaluate example-based personalization (no model training)
 - Add answer preview
 - Add target range and diff rendering
 - Add approve/discard controls
 - Apply through Obsidian editor APIs
 - Verify undo behavior and stale-editor protection
 
-Exit condition: no model-generated content reaches the Vault without approval, every approved change can be undone, and the baseline personalization path preserves evidence while reflecting the selected style.
+Exit condition: no model-generated content reaches the Vault without approval, every approved change can be undone, and example-based personalization preserves evidence while reflecting the selected style.
 
-## Phase 3 — Retrieval quality
+## Phase 3 — Retrieval quality (start first, per ADR 0007)
+
+Retrieval is the critical risk of the career-writing workflow, so this phase is validated before further feature work: run real application questions by hand and check that the right experience notes surface.
 
 - Use headings, links, backlinks, tags, and properties
-- Build a lexical retrieval evaluation set
+- Prefer structured experience notes over opinion or study notes when ranking
+- Report "no supporting note" instead of letting the model fill the gap
+- Build a lexical retrieval evaluation set from real application questions
 - Measure selection accuracy and answer grounding
 - Introduce embeddings or reranking only if lexical retrieval fails an agreed target
 
-## Phase 4 — Optional providers and broader network tools
+## Phase 4 — Hosted providers and broader network tools
 
-- External provider adapters
+- Hosted provider adapter with the user's own key (first provider to be chosen)
 - Secure API-key storage decision
-- Vault-content egress consent
+- Vault-content egress consent that shows what will be sent
 - General web research beyond Wikipedia with domain/source visibility
 - Network permission settings
 
-## Phase 5 — Training and advanced harness
+## Phase 5 — Advanced harness
 
-- Collect opt-in, privacy-safe failure examples
-- Define behavior evals before training
-- Add the Python training workspace
-- Train and compare LoRA adapters against the non-training personalization baseline
 - Add reusable workflows and bounded multi-step runs
 - Reconsider a companion engine only from measured plugin limits
+
+Model training is not planned (ADR 0007).
 
 ## Open decision order
 
@@ -78,14 +80,14 @@ Resolve one at a time:
 
 1. Model context and output budget
 2. Korean writing, grounding, and personalization evaluation gates
-3. Model resident-memory, idle-unload, and quantization policy
-4. Initial model provider: Ollama native or OpenAI-compatible
+3. Local provider only: resident-memory, idle-unload, and quantization policy
+4. First hosted provider and contract; Ollama native or OpenAI-compatible remain options for the local provider
 5. Named default-model research and benchmark
 6. Evidence reference granularity: note, heading, block, or range
 7. Lexical retrieval and cache strategy
 8. Insert-preview diff interaction
-9. First LoRA behavior objective
-10. External provider key storage
-11. General web research provider and permission UX
+9. Hosted-provider key storage and the Data Egress Consent experience
+10. General web research provider and permission UX
+11. Style-example selection experience for resume bullets and essay answers
 
 Resolved: UI implementation is React (ADR 0005).
