@@ -89,8 +89,47 @@ uv run python -m model.training approve-preparation \
 덮어쓰지 않고 거부합니다. 승인 파일에도 원문과 문서 경로가 포함되므로 전체 실행
 폴더를 개인 자료처럼 로컬에 보관하세요. 자동 검사는 사용자 승인의 의미적 정확성을
 증명하지 않습니다. 이 단계는 모델을 불러오거나 LoRA를 학습하지 않고,
-`candidate/`도 만들지 않습니다. `train-prepared`는 후속 단계이며 아직 사용할 수
-없습니다.
+`candidate/`도 만들지 않습니다.
+
+## 3단계: 승인 자료로 후보 학습
+
+`approved_for_training` 실행만 다음 명령으로 학습할 수 있습니다. 준비 때 기록한
+기본 모델과 revision을 그대로 사용하므로 `--model`로 바꿀 수 없습니다.
+
+```bash
+uv run python -m model.training train-prepared \
+  --run-dir "/absolute/path/to/prepared-run" \
+  --device cpu
+```
+
+`--dry-run`은 승인 봉인, 현재 원문, 자료 분리와 중복을 다시 검사하지만 모델을
+불러오거나 파일을 만들지 않습니다. 실제 학습 직전과 후보 공개 직전에도 같은 검사를
+반복합니다. 승인된 문체 프로필과 사실 문장만 모델 입력에 들어가며, 원문 구간은
+학습·검증 정답으로만 사용합니다. 승인한 사례가 토큰 한도를 넘으면 일부를 제외하지
+않고 전체 실행을 중단합니다.
+
+성공한 실행에는 private `candidate/`가 한 번에 공개됩니다.
+
+- `adapter.pt`, `adapter.json`, `metrics.json`, `tokenizer/`: 비활성 LoRA 후보.
+- `training-input.json`: 승인 봉인, 기본 모델 revision, 학습 설정과 split 지문.
+- `candidate-seal.json`: 후보 아래 모든 파일의 경로와 SHA-256 해시.
+- `evaluation/`: 같은 설정으로 생성한 baseline·LoRA 답변, 검토 양식과 자동 진단.
+- `evaluation/training-recall.json`: 평가 답변에 나타난 학습 전용 숫자·URL·긴 구절을
+  원문 대신 해시로 기록한 진단 자료.
+
+`run.json`은 `pending_quality_review`에서 멈추고 후보 metadata의 `active`는 계속
+`false`입니다. 자동 literal·회상 검사는 의미적 품질을 합격시키지 않습니다. 다음처럼
+모든 baseline·LoRA 답변을 사람이 검토해야 블라인드 문체 비교를 만들 수 있습니다.
+
+```bash
+uv run python -m model.training review \
+  --run-dir "/absolute/path/to/prepared-run/candidate/evaluation" \
+  --reviews-file "/absolute/path/to/completed-reviews.jsonl"
+```
+
+플러그인에 후보를 활성화하는 전역 registry와 rollback 형식은 아직 결정되지 않았으므로
+이 단계는 후보를 제품에 적용하지 않습니다. `candidate/`와 평가 답변에도 개인 자료가
+포함될 수 있으므로 실행 폴더 전체를 로컬의 private 자료로 취급하세요.
 
 ## 기본 사용: 문서 폴더만 지정
 
