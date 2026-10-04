@@ -17,7 +17,22 @@ import type {
   ModelProvider,
   ModelRequest,
   ProviderHealth,
+  RequestCounter,
 } from "./types"
+
+/**
+ * For the fake provider and tests only. Serialized bytes bound the token count
+ * of a byte-level tokenizer from above, but this is NOT the verified profile
+ * that docs/MODEL_SELECTION.md requires for a real model.
+ */
+export const fakeRequestCounter: RequestCounter = {
+  async count(request) {
+    return {
+      promptTokens: new TextEncoder().encode(JSON.stringify(request)).length,
+      method: "verified_upper_bound",
+    }
+  },
+}
 
 export interface FakeProviderOptions {
   /** Emitted one chunk at a time, in order. */
