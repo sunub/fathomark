@@ -186,7 +186,7 @@ def save_candidate(
     if not state or any(not torch.isfinite(t).all().item() for t in state.values()):
         raise ValueError("Adapter is empty or non-finite")
     metrics_json = json.dumps(metrics, indent=2, allow_nan=False) + "\n"
-    output.mkdir(parents=True, exist_ok=False)
+    output.mkdir(parents=True, exist_ok=False, mode=0o700)
     torch.save(state, output / "adapter.pt")
     if tokenizer is not None:
         tokenizer.save_pretrained(output / "tokenizer")

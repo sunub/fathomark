@@ -3,6 +3,7 @@
 import hashlib
 import json
 import math
+import shutil
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -66,6 +67,22 @@ def add_folder_command(commands):
     approve.add_argument("--style-profile", required=True, type=Path)
     approve.add_argument("--facts-file", required=True, type=Path)
 
+    train_prepared = commands.add_parser(
+        "train-prepared",
+        help="Train and evaluate one candidate from a sealed preparation",
+    )
+    train_prepared.add_argument("--run-dir", required=True, type=Path)
+    train_prepared.add_argument("--dry-run", action="store_true")
+    train_prepared.add_argument("--device", choices=["cpu", "cuda", "mps"])
+    train_prepared.add_argument("--epochs", type=int, default=3)
+    train_prepared.add_argument("--learning-rate", type=float, default=1e-4)
+    train_prepared.add_argument("--accumulation-steps", type=int, default=4)
+    train_prepared.add_argument("--max-length", type=int, default=2048)
+    train_prepared.add_argument("--max-new-tokens", type=int, default=256)
+    train_prepared.add_argument("--rank", type=int, default=8)
+    train_prepared.add_argument("--alpha", type=float, default=16.0)
+    train_prepared.add_argument("--seed", type=int, default=42)
+
 
 def _json(path, value):
     path.write_text(
@@ -93,6 +110,11 @@ def _write_temporary(path, text):
 
 def _atomic_json(path, value):
     _write_temporary(path, _json_text(value)).replace(path)
+
+
+def _canonical_model_name(value: str) -> str:
+    local = Path(value).expanduser()
+    return str(local.resolve()) if local.is_dir() else value
 
 
 def _filter_lengths(prepared, tokenizer, max_length):
@@ -181,12 +203,13 @@ def prepare_folder(args):
     if staging.exists():
         raise ValueError("Preparation staging directory already exists")
     staging.mkdir(parents=True)
+    model_name = _canonical_model_name(args.model)
     run = {
         "schema_version": 1,
         "command": "prepare-folder",
         "input_dir": str(root),
         "output_dir": str(output),
-        "model": args.model,
+        "model": model_name,
         "device": args.device,
         "max_chars": args.max_chars,
         "extraction_tokens": args.extraction_tokens,
@@ -203,7 +226,7 @@ def prepare_folder(args):
     try:
         torch.manual_seed(args.seed)
         tokenizer, model = load_base_model(
-            args.model, torch.device(args.device) if args.device else None
+            model_name, torch.device(args.device) if args.device else None
         )
 
         def extract(prompt):
@@ -232,7 +255,7 @@ def prepare_folder(args):
                     "skipped": list(prepared.skipped),
                     "automatic_checks_only": True,
                     "semantic_review": "pending",
-                    "extraction_model": args.model,
+                    "extraction_model": model_name,
                     "extraction_revision": getattr(model.config, "_commit_hash", None),
                 }
             ),
@@ -406,6 +429,267 @@ def approve_preparation(args):
     }
     _atomic_json(run_dir / "run.json", final_run)
     _approval_summary(run_dir, approval_sha256, len(approved.facts))
+
+
+def _prepared_hyperparameters(args) -> dict[str, object]:
+    integer_values = {
+        "epochs": args.epochs,
+        "accumulation_steps": args.accumulation_steps,
+        "max_length": args.max_length,
+        "max_new_tokens": args.max_new_tokens,
+        "rank": args.rank,
+    }
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or value < 1
+        for value in integer_values.values()
+    ):
+        raise ValueError("training counts and lengths must be positive integers")
+    if args.max_length < 2:
+        raise ValueError("max-length must be at least 2")
+    if isinstance(args.seed, bool) or not isinstance(args.seed, int):
+        raise TypeError("seed must be an integer")
+    if (
+        isinstance(args.learning_rate, bool)
+        or not isinstance(args.learning_rate, (int, float))
+        or not math.isfinite(args.learning_rate)
+        or args.learning_rate <= 0
+        or isinstance(args.alpha, bool)
+        or not isinstance(args.alpha, (int, float))
+        or not math.isfinite(args.alpha)
+        or args.alpha <= 0
+    ):
+        raise ValueError("learning-rate and alpha must be finite and positive")
+    return {
+        "device": args.device,
+        "epochs": args.epochs,
+        "learning_rate": args.learning_rate,
+        "accumulation_steps": args.accumulation_steps,
+        "max_length": args.max_length,
+        "max_new_tokens": args.max_new_tokens,
+        "rank": args.rank,
+        "alpha": args.alpha,
+        "seed": args.seed,
+    }
+
+
+def _canonical_sha256(value: object) -> str:
+    payload = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _clear_candidate_staging(run_dir: Path, staging: Path) -> None:
+    if not staging.exists() and not staging.is_symlink():
+        return
+    if staging.parent != run_dir or staging.name != ".candidate.training":
+        raise ValueError("candidate staging path is outside the selected run")
+    if staging.is_symlink() or not staging.is_dir():
+        raise ValueError("candidate staging path must be a private directory")
+    shutil.rmtree(staging)
+
+
+def _prepared_summary(
+    run_dir: Path,
+    status: str,
+    approval_sha256: str,
+    counts: dict[str, int],
+) -> None:
+    print(
+        json.dumps(
+            {
+                "run": str(run_dir),
+                "status": status,
+                "approval_sha256": approval_sha256,
+                "samples": counts,
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+def train_prepared(args):
+    """Train one sealed candidate and stop before human quality review."""
+    from model.evaluation.result import load_results
+    from model.training.prepared_training import (
+        load_prepared_training,
+        seal_candidate,
+        training_input_record,
+        training_recall_diagnostics,
+        verify_candidate_seal,
+    )
+
+    run_dir = args.run_dir.expanduser()
+    allowed_statuses = frozenset(
+        {
+            "approved_for_training",
+            "training",
+            "training_failed",
+            "pending_quality_review",
+        }
+    )
+    prepared = load_prepared_training(run_dir, allowed_statuses)
+    hyperparameters = _prepared_hyperparameters(args)
+    base_model = _canonical_model_name(prepared.base_model)
+    record = training_input_record(
+        prepared.datasets,
+        approval_sha256=prepared.approval_sha256,
+        source_manifest_sha256=prepared.source_manifest_sha256,
+        base_model=base_model,
+        base_revision=prepared.base_revision,
+        hyperparameters=hyperparameters,
+    )
+    counts = dict(record["split_counts"])
+    if args.dry_run:
+        _prepared_summary(
+            run_dir, "verified_for_training", prepared.approval_sha256, counts
+        )
+        return
+
+    run = _approval_run(run_dir)
+    clean_run = {
+        key: value
+        for key, value in run.items()
+        if key not in {"error", "candidate_dir", "candidate_sha256"}
+    }
+    candidate_dir = run_dir / "candidate"
+    staging = run_dir / ".candidate.training"
+    config_sha256 = _canonical_sha256(hyperparameters)
+
+    if candidate_dir.exists() or candidate_dir.is_symlink():
+        _clear_candidate_staging(run_dir, staging)
+        verify_candidate_seal(candidate_dir, prepared.approval_sha256, hyperparameters)
+        existing_record = json.loads(
+            (candidate_dir / "training-input.json").read_text(encoding="utf-8")
+        )
+        if existing_record != record:
+            raise ValueError("sealed candidate uses different training inputs")
+        seal_sha256 = hashlib.sha256(
+            (candidate_dir / "candidate-seal.json").read_bytes()
+        ).hexdigest()
+        if run.get("status") == "pending_quality_review":
+            if (
+                run.get("candidate_dir") != "candidate"
+                or run.get("candidate_sha256") != seal_sha256
+                or run.get("training_config_sha256") != config_sha256
+            ):
+                raise ValueError("run.json disagrees with the sealed candidate")
+            _prepared_summary(
+                run_dir,
+                "pending_quality_review",
+                prepared.approval_sha256,
+                counts,
+            )
+            return
+        final_run = {
+            **clean_run,
+            "status": "pending_quality_review",
+            "candidate_dir": "candidate",
+            "candidate_sha256": seal_sha256,
+            "training_config_sha256": config_sha256,
+        }
+        _atomic_json(run_dir / "run.json", final_run)
+        _prepared_summary(
+            run_dir,
+            "pending_quality_review",
+            prepared.approval_sha256,
+            counts,
+        )
+        return
+
+    if run.get("status") == "pending_quality_review":
+        raise ValueError("pending_quality_review run is missing its sealed candidate")
+    if (
+        run.get("status") == "training"
+        and run.get("training_config_sha256") != config_sha256
+    ):
+        raise ValueError("interrupted training used different hyperparameters")
+    _clear_candidate_staging(run_dir, staging)
+    training_run = {
+        **clean_run,
+        "status": "training",
+        "training_config_sha256": config_sha256,
+    }
+    _atomic_json(run_dir / "run.json", training_run)
+
+    args.model = base_model
+    args.base_revision = prepared.base_revision
+    record_bytes = _json_text(record).encode("utf-8")
+    record_sha256 = hashlib.sha256(record_bytes).hexdigest()
+    try:
+        fit_candidate(
+            args,
+            prepared.datasets.training,
+            prepared.datasets.validation,
+            prepared.datasets.evaluation,
+            staging,
+            metadata_extra={
+                "training_data_status": "approved_preparation",
+                "preparation_version": 1,
+                "approval_sha256": prepared.approval_sha256,
+                "draft_input_sha256": prepared.approval["draft_input_sha256"],
+                "source_manifest_sha256": prepared.source_manifest_sha256,
+                "style_profile_sha256": prepared.approval["style_profile_sha256"],
+                "facts_sha256": prepared.approval["facts_sha256"],
+                "training_input_sha256": record_sha256,
+            },
+            emit_summary=False,
+            strict_evaluation_length=True,
+        )
+        with (staging / "training-input.json").open("xb") as file:
+            file.write(record_bytes)
+        results = list(load_results(staging / "evaluation" / "results.jsonl"))
+        _json(
+            staging / "evaluation" / "training-recall.json",
+            training_recall_diagnostics(prepared.datasets, results),
+        )
+        current = load_prepared_training(run_dir, frozenset({"training"}))
+        current_base_model = _canonical_model_name(current.base_model)
+        current_record = training_input_record(
+            current.datasets,
+            approval_sha256=current.approval_sha256,
+            source_manifest_sha256=current.source_manifest_sha256,
+            base_model=current_base_model,
+            base_revision=current.base_revision,
+            hyperparameters=hyperparameters,
+        )
+        if current_record != record:
+            raise ValueError("approved training inputs changed during training")
+        seal_candidate(staging, prepared.approval_sha256, hyperparameters)
+        staging.replace(candidate_dir)
+    except BaseException as error:
+        _clear_candidate_staging(run_dir, staging)
+        if not candidate_dir.exists() and not candidate_dir.is_symlink():
+            _atomic_json(
+                run_dir / "run.json",
+                {
+                    **training_run,
+                    "status": "training_failed",
+                    "error": type(error).__name__,
+                },
+            )
+        raise
+
+    seal_sha256 = hashlib.sha256(
+        (candidate_dir / "candidate-seal.json").read_bytes()
+    ).hexdigest()
+    final_run = {
+        **training_run,
+        "status": "pending_quality_review",
+        "candidate_dir": "candidate",
+        "candidate_sha256": seal_sha256,
+    }
+    _atomic_json(run_dir / "run.json", final_run)
+    _prepared_summary(
+        run_dir,
+        "pending_quality_review",
+        prepared.approval_sha256,
+        counts,
+    )
 
 
 def train_folder(args):

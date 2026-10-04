@@ -10,6 +10,7 @@ from transformers import AutoTokenizer
 
 from model.evaluation.case import load_cases
 from model.evaluation.runner import (
+    build_prompt,
     finalize_review,
     generate_results,
     validate_cases,
@@ -163,6 +164,8 @@ def fit_candidate(
     *,
     model_context=None,
     metadata_extra=None,
+    emit_summary=True,
+    strict_evaluation_length=False,
 ):
     """Shared optimizer/evaluation path for reviewed or provenance-labeled data."""
     config = TrainConfig(
@@ -175,14 +178,40 @@ def fit_candidate(
     model_name = (
         str(Path(args.model).resolve()) if Path(args.model).is_dir() else args.model
     )
-    tokenizer, model = model_context or load_base_model(
-        model_name, torch.device(args.device) if args.device else None
-    )
+    if model_context is None:
+        load_options = {}
+        base_revision = getattr(args, "base_revision", None)
+        if base_revision is not None:
+            load_options["revision"] = base_revision
+        tokenizer, model = load_base_model(
+            model_name,
+            torch.device(args.device) if args.device else None,
+            **load_options,
+        )
+    else:
+        tokenizer, model = model_context
     samples = build_supervised_samples(training, tokenizer, args.max_length)
     validation_samples = build_supervised_samples(
         validation, tokenizer, args.max_length
     )
+    if strict_evaluation_length:
+        for case in cases:
+            prompt = tokenizer.apply_chat_template(
+                [{"role": "user", "content": build_prompt(case)}],
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+            token_count = len(tokenizer.encode(prompt, add_special_tokens=False))
+            if token_count > args.max_length:
+                raise ValueError(
+                    f"{case.id}: evaluation prompt has {token_count} tokens; "
+                    f"max_length={args.max_length}"
+                )
     settings = _settings(model, args.max_new_tokens)
+    recorded_revision = getattr(args, "base_revision", None)
+    if recorded_revision is not None and settings["base_revision"] != recorded_revision:
+        raise ValueError("Loaded base model revision differs from prepared training")
     baseline = _results(
         model, tokenizer, cases, "prompt_baseline", model_name, settings
     )
@@ -212,17 +241,15 @@ def fit_candidate(
         tokenizer=tokenizer,
     )
     report = write_evaluation(output / "evaluation", cases, baseline + adapted)
-    print(
-        json.dumps(
-            {
-                "candidate": str(output),
-                "evaluation": str(output / "evaluation"),
-                "status": report["status"],
-                "selected_epoch": metrics["selected_epoch"],
-            },
-            ensure_ascii=False,
-        )
-    )
+    summary = {
+        "candidate": str(output),
+        "evaluation": str(output / "evaluation"),
+        "status": report["status"],
+        "selected_epoch": metrics["selected_epoch"],
+    }
+    if emit_summary:
+        print(json.dumps(summary, ensure_ascii=False))
+    return summary
 
 
 def _check_seen_cases(metadata, cases):
@@ -280,16 +307,23 @@ def evaluate_candidate(args):
 
 
 def run_command(args):
-    if args.command in ("prepare-folder", "approve-preparation", "train-folder"):
+    if args.command in (
+        "prepare-folder",
+        "approve-preparation",
+        "train-prepared",
+        "train-folder",
+    ):
         from model.training.folder_workflow import (
             approve_preparation,
             prepare_folder,
             train_folder,
+            train_prepared,
         )
 
         folder_commands = {
             "prepare-folder": prepare_folder,
             "approve-preparation": approve_preparation,
+            "train-prepared": train_prepared,
             "train-folder": train_folder,
         }
         folder_commands[args.command](args)

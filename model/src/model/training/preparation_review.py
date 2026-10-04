@@ -210,11 +210,11 @@ def _validate_run(value: object) -> dict[str, object]:
     if value.get("status") not in {
         "pending_preparation_review",
         "approved_for_training",
+        "training",
+        "training_failed",
+        "pending_quality_review",
     }:
-        raise ValueError(
-            "run.json status must be pending_preparation_review or "
-            "approved_for_training"
-        )
+        raise ValueError("run.json status is not valid for preparation verification")
     max_chars = value.get("max_chars")
     if isinstance(max_chars, bool) or not isinstance(max_chars, int) or max_chars < 1:
         raise ValueError("run.json max_chars must be a positive integer")
