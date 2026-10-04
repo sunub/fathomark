@@ -125,10 +125,10 @@ def _missing(case: EvaluationCase, result: EvaluationResult) -> list[str]:
 
 
 def _json(path: Path, value: object) -> None:
-    path.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
+    with path.open("w", encoding="utf-8") as file:
+        path.chmod(0o600)
+        file.write(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False))
+        file.write("\n")
 
 
 def write_evaluation(
