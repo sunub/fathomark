@@ -3,6 +3,7 @@
 import json
 import math
 import random
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -100,8 +101,8 @@ def evaluate_loss(model, chunks):
 
 def fit(
     model: nn.Module,
-    train_chunks: list[list[int] | TokenExample],
-    validation_chunks: list[list[int] | TokenExample],
+    train_chunks: Sequence[list[int] | TokenExample],
+    validation_chunks: Sequence[list[int] | TokenExample],
     config: TrainConfig,
     *,
     select_best: bool = False,
@@ -161,6 +162,7 @@ def fit(
                 best_state = adapter_state_dict(model)
         print(json.dumps(row), flush=True)
     if select_best:
+        assert best_state is not None
         load_adapter_state_dict(model, best_state)
     return {
         "validation_loss_before": initial,
