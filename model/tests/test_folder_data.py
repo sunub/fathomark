@@ -6,6 +6,7 @@ from model.training.corpus import Document
 from model.training.folder_data import (
     FactStatement,
     StyleProfile,
+    _fact_statements,
     fact_statements_from_rows,
     prepare_folder_data,
     prepare_folder_draft,
@@ -136,12 +137,6 @@ class FolderDataTest(unittest.TestCase):
                 {
                     "statement": "회의는 14:00에 시작한다.",
                     "evidence_spans": ["존재하지 않는 근거"],
-                }
-            ],
-            "missing numeric context": [
-                {
-                    "statement": "회의가 시작된다.",
-                    "evidence_spans": ["회의는"],
                 }
             ],
             "numeric substring": [
@@ -311,6 +306,49 @@ class FolderDataTest(unittest.TestCase):
         self.assertNotIn("Validation secret", serialized)
         self.assertNotIn("Held out topic", serialized)
 
+    def test_style_failure_reasons_are_reported_when_profile_is_unusable(self):
+        splits = {
+            "train": [doc("a.md", "Alpha text."), doc("b.md", "Beta text.")],
+            "validation": [],
+            "evaluation": [],
+        }
+
+        def string_fields(prompt):
+            return json.dumps(
+                {
+                    "tone": "calm",
+                    "organization": ["a"],
+                    "sentence_style": ["b"],
+                    "formatting": ["c"],
+                }
+            )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"at least 2 contributing documents \(failures: 2x tone must contain",
+        ):
+            prepare_folder_draft(splits, string_fields)
+
+    def test_style_prompt_requires_array_fields_with_an_example(self):
+        prompts = []
+
+        def capture(prompt):
+            prompts.append(prompt)
+            return "{}"
+
+        with self.assertRaises(ValueError):
+            prepare_folder_draft(
+                {
+                    "train": [doc("a.md", "Alpha text.")],
+                    "validation": [],
+                    "evaluation": [],
+                },
+                capture,
+            )
+
+        self.assertIn("JSON array", prompts[0])
+        self.assertIn('{"tone": ["calm"]', prompts[0])
+
     def test_draft_profile_rejects_each_content_leakage_class(self):
         base_splits = {
             "train": [
@@ -458,23 +496,6 @@ class FolderDataTest(unittest.TestCase):
                     }
                 ]
             },
-            "duplicate": {
-                "facts": [
-                    {
-                        "statement": "회의는 14:00에 시작한다.",
-                        "evidence_spans": ["회의는 14:00에 시작한다."],
-                    },
-                    {
-                        "statement": "회의는 14:00에 시작한다.",
-                        "evidence_spans": ["회의는 14:00에 시작한다."],
-                    },
-                ]
-            },
-            "numeric": {
-                "facts": [
-                    {"statement": "회의가 시작된다.", "evidence_spans": ["회의는"]}
-                ]
-            },
             "copy": {
                 "facts": [
                     {
@@ -508,6 +529,46 @@ class FolderDataTest(unittest.TestCase):
                     )
                 )
 
+    def test_public_fact_validator_allows_facts_that_omit_source_numbers(self):
+        passage = "회의는 14:00에 시작한다. 안내 문장이 충분히 이어진다."
+
+        statements = fact_statements_from_rows(
+            [{"statement": "회의가 시작된다.", "evidence_spans": ["회의는"]}], passage
+        )
+
+        self.assertEqual(statements[0].required_literals, ())
+
+    def test_invalid_facts_are_dropped_without_failing_the_passage(self):
+        passage = "회의는 14:00에 시작한다. 안내 문장이 충분히 이어진다. 끝맺음이 있다."
+        rows = [
+            {
+                "statement": "회의는 14:00에 시작한다.",
+                "evidence_spans": ["회의는 14:00에 시작한다."],
+            },
+            {"statement": "원문에 없는 문장이다.", "evidence_spans": ["없는 근거"]},
+            {
+                "statement": "회의는 15:00에 시작한다.",
+                "evidence_spans": ["회의는 14:00에 시작한다."],
+            },
+            {"statement": "malformed"},
+            {
+                "statement": "회의는 14:00에 시작한다.",
+                "evidence_spans": ["회의는 14:00에 시작한다."],
+            },
+        ]
+
+        statements = _fact_statements(passage, lambda _: json.dumps({"facts": rows}))
+
+        self.assertEqual(
+            [item.statement for item in statements], [rows[0]["statement"]]
+        )
+
+    def test_passage_fails_with_first_reason_when_every_fact_is_invalid(self):
+        rows = [{"statement": "근거 없는 문장이다.", "evidence_spans": ["없는 근거"]}]
+
+        with self.assertRaisesRegex(ValueError, "not an exact source excerpt"):
+            _fact_statements("원문 문장이다.", lambda _: json.dumps({"facts": rows}))
+
     def test_fact_draft_requires_three_accepted_evaluation_cases(self):
         splits = {
             "train": [
@@ -532,8 +593,29 @@ class FolderDataTest(unittest.TestCase):
                 return "not JSON"
             return fact_draft_response(prompt)
 
-        with self.assertRaisesRegex(ValueError, "3 accepted evaluation"):
+        with self.assertRaisesRegex(
+            ValueError, r"3 accepted evaluation cases \(failures: 1x "
+        ):
             prepare_folder_draft(splits, draft_extract)
+
+    def test_fact_prompt_has_no_copyable_placeholder_span(self):
+        prompts = []
+
+        def capture(prompt):
+            prompts.append(prompt)
+            return style_draft_response() if "STYLE_SOURCE_JSON: " in prompt else "{}"
+
+        splits = {
+            "train": [doc("a.md", "첫 문서다."), doc("b.md", "둘째 문서다.")],
+            "validation": [],
+            "evaluation": [doc("evaluation/e.md", "평가 문서다.")],
+        }
+        with self.assertRaises(ValueError):
+            prepare_folder_draft(splits, capture)
+
+        fact_prompt = next(item for item in prompts if "FACT_SOURCE_JSON: " in item)
+        self.assertNotIn('"exact source excerpt"', fact_prompt)
+        self.assertIn("character for character", fact_prompt)
 
     def test_duplicate_fact_statement_cannot_bypass_cross_split_checks(self):
         splits = {

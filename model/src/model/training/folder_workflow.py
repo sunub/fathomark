@@ -58,6 +58,11 @@ def add_folder_command(commands):
     prepare.add_argument("--max-chars", type=int, default=1200)
     prepare.add_argument("--extraction-tokens", type=int, default=512)
     prepare.add_argument("--seed", type=int, default=42)
+    prepare.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="Reuse saved extractor responses from this directory (created if missing)",
+    )
 
     approve = commands.add_parser(
         "approve-preparation",
@@ -115,6 +120,30 @@ def _atomic_json(path, value):
 def _canonical_model_name(value: str) -> str:
     local = Path(value).expanduser()
     return str(local.resolve()) if local.is_dir() else value
+
+
+def _cached_extract(extract, cache_dir, model_name, revision, max_new_tokens):
+    """Reuse deterministic extractor responses so validation tweaks need no regeneration."""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def cached(prompt):
+        key = hashlib.sha256(
+            json.dumps(
+                [model_name, revision, max_new_tokens, prompt], ensure_ascii=False
+            ).encode("utf-8")
+        ).hexdigest()
+        path = cache_dir / f"{key}.json"
+        try:
+            response = json.loads(path.read_text(encoding="utf-8"))["response"]
+            if isinstance(response, str):
+                return response
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        response = extract(prompt)
+        _atomic_json(path, {"response": response})
+        return response
+
+    return cached
 
 
 def _filter_lengths(prepared, tokenizer, max_length):
@@ -232,6 +261,15 @@ def prepare_folder(args):
         def extract(prompt):
             return generate_text(
                 model, tokenizer, prompt, max_new_tokens=args.extraction_tokens
+            )
+
+        if args.cache_dir is not None:
+            extract = _cached_extract(
+                extract,
+                args.cache_dir.expanduser(),
+                model_name,
+                getattr(model.config, "_commit_hash", None),
+                args.extraction_tokens,
             )
 
         prepared = prepare_folder_draft(splits, extract, args.max_chars)

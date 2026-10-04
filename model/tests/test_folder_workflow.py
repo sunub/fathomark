@@ -792,6 +792,78 @@ class FolderWorkflowTest(unittest.TestCase):
                 canonical,
             )
 
+    def test_prepare_folder_reuses_cached_extractor_responses(self):
+        from unittest.mock import MagicMock
+
+        from model.training.folder_data import PreparedFolderDraft, StyleProfile
+
+        draft = PreparedFolderDraft(
+            style_profile=StyleProfile(
+                tone=("차분하게 설명한다",),
+                organization=("핵심을 먼저 제시한다",),
+                sentence_style=("짧은 설명문을 사용한다",),
+                formatting=("필요할 때 목록을 사용한다",),
+            ),
+            style_sources=(),
+            facts=(),
+            skipped=(),
+            automatic_checks=(),
+        )
+        seen = []
+
+        def fake_draft(splits, extract, max_chars):
+            seen.append((extract("same prompt"), extract("other prompt")))
+            return draft
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            writing = root / "writing"
+            self.preparation_documents(writing)
+            model = MagicMock()
+            model.config._commit_hash = "revision"
+            calls = []
+
+            def generate(model, tokenizer, prompt, max_new_tokens):
+                calls.append((prompt, max_new_tokens))
+                return f"response {len(calls)}"
+
+            def run(name, *extra):
+                with (
+                    patch(
+                        "model.training.folder_workflow.load_base_model",
+                        return_value=(MagicMock(), model),
+                    ),
+                    patch(
+                        "model.training.folder_workflow.prepare_folder_draft",
+                        side_effect=fake_draft,
+                    ),
+                    patch(
+                        "model.training.folder_workflow.generate_text",
+                        side_effect=generate,
+                    ),
+                    contextlib.redirect_stdout(io.StringIO()),
+                ):
+                    main(
+                        [
+                            "prepare-folder",
+                            "--input-dir",
+                            str(writing),
+                            "--output-dir",
+                            str(root / name),
+                            *extra,
+                        ]
+                    )
+
+            cache = root / "cache"
+            run("first", "--cache-dir", str(cache))
+            run("second", "--cache-dir", str(cache))
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(seen[0], seen[1])
+            run("third", "--cache-dir", str(cache), "--extraction-tokens", "64")
+            self.assertEqual(len(calls), 4)
+            run("uncached")
+            self.assertEqual(len(calls), 6)
+
     def test_prepare_folder_rejects_invalid_layout_before_model(self):
         with tempfile.TemporaryDirectory() as tmp:
             temporary = Path(tmp)
