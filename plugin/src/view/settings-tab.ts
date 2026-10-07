@@ -33,6 +33,24 @@ export class FathomarkSettingTab extends PluginSettingTab {
           })
       )
 
+    new Setting(containerEl).setName("Search").setHeading()
+
+    new Setting(containerEl)
+      .setName("Experience folder")
+      .setDesc(
+        "Notes in this folder rank above other notes when Fathomark looks for evidence, " +
+          "for example a folder of past cover letters. Separate several folders with commas. Notes with `type: experience` in " +
+          "their properties always count. Leave empty to use only those."
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("Cover letters")
+          .setValue(this.plugin.settings.experienceFolder)
+          .onChange(async (value) => {
+            await this.plugin.updateSettings({ experienceFolder: value.trim() })
+          })
+      )
+
     new Setting(containerEl).setName("Research").setHeading()
 
     new Setting(containerEl)
