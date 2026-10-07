@@ -1,8 +1,7 @@
 ---
 paths:
-  # Scoped to what we own. `design-system/**` would also pull in the vendored
-  # obsidian-mcp-server clone — ~220 files of an abandoned codebase these rules
-  # say nothing useful about. `paths` has no negation, so narrow instead.
+  # Scoped to hand-written source. `paths` has no negation, so narrow instead
+  # of excluding.
   - "plugin/**/*.{ts,tsx}"
   - "design-system/src/**/*.{ts,tsx}"
   - "design-system/.storybook/*.{ts,tsx}"
