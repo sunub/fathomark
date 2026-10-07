@@ -1,6 +1,6 @@
 /** Notes taken from each ranking before they are fused. */
 export const CANDIDATES = 50;
-/** Reciprocal Rank Fusion constant. 60 is the value from the RRF paper and obsidian-mcp-server's `hybridSearch`. */
+/** Reciprocal Rank Fusion constant. 60 is the value from the RRF paper. */
 export const RRF_K = 60;
 /** Added to an experience note's similarity when ranking, so opinion notes do not outrank it on a near tie. */
 export const EXPERIENCE_BOOST = 0.03;
