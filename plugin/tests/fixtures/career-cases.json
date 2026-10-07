@@ -1,0 +1,14 @@
+[
+  { "id": "perf", "type": "semantic", "question": "서비스 성능을 개선한 경험을 설명해 주세요", "expected": ["경험/상품조회-캐시-도입.md"], "shouldAbstain": false },
+  { "id": "latency", "type": "keyword", "question": "응답 지연 시간을 줄인 경험이 있나요", "expected": ["경험/상품조회-캐시-도입.md"], "shouldAbstain": false },
+  { "id": "ci", "type": "semantic", "question": "개발 환경이나 배포 과정을 개선한 경험", "expected": ["경험/빌드-파이프라인-이전.md"], "shouldAbstain": false },
+  { "id": "incident", "type": "keyword", "question": "장애를 해결한 경험을 말씀해 주세요", "expected": ["경험/결제-장애-대응.md"], "shouldAbstain": false },
+  { "id": "lead", "type": "semantic", "question": "팀을 이끈 리더십 경험을 서술하세요", "expected": ["경험/팀-리딩-경험.md"], "shouldAbstain": false },
+  { "id": "conflict", "type": "semantic", "question": "협업 중 갈등을 해결한 경험", "expected": ["경험/팀-리딩-경험.md"], "shouldAbstain": false },
+  { "id": "search", "type": "keyword", "question": "검색이나 추천 품질을 높인 경험", "expected": ["경험/검색-품질-개선.md"], "shouldAbstain": false },
+  { "id": "data", "type": "keyword", "question": "데이터 파이프라인을 만든 경험", "expected": ["경험/인턴-데이터-파이프라인.md"], "shouldAbstain": false },
+  { "id": "automation", "type": "keyword", "question": "수작업을 자동화한 경험", "expected": ["경험/인턴-데이터-파이프라인.md"], "shouldAbstain": false },
+  { "id": "blockchain", "type": "no_answer", "question": "블록체인 스마트 컨트랙트를 개발한 경험", "expected": [], "shouldAbstain": true },
+  { "id": "ios", "type": "no_answer", "question": "iOS 앱을 출시한 경험", "expected": [], "shouldAbstain": true },
+  { "id": "ml", "type": "no_answer", "question": "머신러닝 모델을 서비스에 배포한 경험", "expected": [], "shouldAbstain": true }
+]

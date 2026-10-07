@@ -1,0 +1,12 @@
+[
+  { "id": "h-title", "type": "exact_title", "question": "상품 조회 API 캐시 도입 사례를 알려 주세요", "expected": ["경험/상품조회-캐시-도입.md"], "shouldAbstain": false },
+  { "id": "h-build", "type": "keyword", "question": "빌드 시간을 단축한 경험", "expected": ["경험/빌드-파이프라인-이전.md"], "shouldAbstain": false },
+  { "id": "h-payment", "type": "keyword", "question": "결제 승인 실패의 원인을 찾아 복구한 경험", "expected": ["경험/결제-장애-대응.md"], "shouldAbstain": false },
+  { "id": "h-sprint", "type": "semantic", "question": "팀의 일정 달성률을 끌어올린 경험", "expected": ["경험/팀-리딩-경험.md"], "shouldAbstain": false },
+  { "id": "h-airflow", "type": "keyword", "question": "Airflow로 배치 작업을 스케줄링한 경험", "expected": ["경험/인턴-데이터-파이프라인.md"], "shouldAbstain": false },
+  { "id": "h-hitrate", "type": "semantic", "question": "검색 적중률을 높이려고 평가 세트를 만든 경험", "expected": ["경험/검색-품질-개선.md"], "shouldAbstain": false },
+  { "id": "h-multi", "type": "multi_doc", "question": "장애나 배포 실패가 반복되지 않도록 방지 장치를 도입한 경험", "expected": ["경험/결제-장애-대응.md", "경험/빌드-파이프라인-이전.md"], "shouldAbstain": false },
+  { "id": "h-k8s", "type": "no_answer", "question": "쿠버네티스 클러스터를 운영한 경험", "expected": [], "shouldAbstain": true },
+  { "id": "h-english", "type": "no_answer", "question": "해외 고객 앞에서 영어로 발표한 경험", "expected": [], "shouldAbstain": true },
+  { "id": "h-react", "type": "no_answer", "question": "리액트 디자인 시스템을 구축한 경험", "expected": [], "shouldAbstain": true }
+]
