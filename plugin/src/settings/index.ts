@@ -19,6 +19,11 @@ export interface FathomarkSettings {
    */
   readonly networkResearchEnabled: boolean
   readonly selectedStyle: SelectedStyle | null
+  /**
+   * Vault folder whose notes count as experience notes when ranking search results,
+   * e.g. a cover-letter folder. Empty means only notes labelled `type: experience` do.
+   */
+  readonly experienceFolder: string
 }
 
 export const DEFAULT_SETTINGS: FathomarkSettings = {
@@ -26,6 +31,7 @@ export const DEFAULT_SETTINGS: FathomarkSettings = {
   model: "fake",
   networkResearchEnabled: false,
   selectedStyle: null,
+  experienceFolder: "",
 }
 
 /** Tolerates a settings file written by an older version, or a corrupt one. */
@@ -43,6 +49,10 @@ export function parseSettings(raw: unknown): FathomarkSettings {
         ? value.networkResearchEnabled
         : DEFAULT_SETTINGS.networkResearchEnabled,
     selectedStyle: parseSelectedStyle(value.selectedStyle),
+    experienceFolder:
+      typeof value.experienceFolder === "string"
+        ? value.experienceFolder
+        : DEFAULT_SETTINGS.experienceFolder,
   }
 }
 
