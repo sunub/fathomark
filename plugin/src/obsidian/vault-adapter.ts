@@ -18,6 +18,8 @@ import type { VaultEvidenceReference } from "../context/evidence"
 export interface NoteSummary {
   readonly path: string
   readonly title: string
+  /** Last modification time in ms. The search index re-reads a note when it changes. */
+  readonly mtime?: number
 }
 
 export class VaultAdapter {
@@ -28,6 +30,7 @@ export class VaultAdapter {
     return this.app.vault.getMarkdownFiles().map((file) => ({
       path: file.path,
       title: file.basename,
+      mtime: file.stat.mtime,
     }))
   }
 
