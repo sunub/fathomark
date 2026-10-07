@@ -1,13 +1,12 @@
 /*
  * Fathomark Chat theme
  *
- * The palette is lifted verbatim from the LLaMA CLI so the Obsidian plugin and
- * the terminal read as one product:
- *   obsidian-mcp-server/src/cli/theme/builtin/tokyonight-dark.ts  (Tokyo Night)
- *   obsidian-mcp-server/src/cli/theme/semantic-tokens.ts          (semantic layer)
+ * The palette is Tokyo Night. This file is its source of truth: the values are
+ * defined here, and `src/lib/tokens.ts` mirrors them as data.
  *
- * Values stay as hex, matching their source, rather than being converted to the
- * oklch used by global.css — a converted token no longer greps back to the CLI.
+ * Values stay as hex rather than being converted to the oklch used by
+ * global.css — a converted token no longer greps back to the Tokyo Night
+ * reference values.
  *
  * This file is imported by global.css, so importing global.css is enough:
  *

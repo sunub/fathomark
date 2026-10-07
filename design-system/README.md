@@ -12,7 +12,6 @@ Obsidian 사이드바 에이전트 **Fathomark**, 그리고 같은 팔레트를 
 | `src/styles/fathomark.css` | Fathomark 테마: Tokyo Night 표면과 의미를 나르는 토큰들 |
 | `src/lib/tokens.ts` | 같은 토큰을 데이터로. 문서와 도구가 순회할 수 있게 |
 | `docs/chat-ui.md` | Chat UI 사양 — 크롬 규칙, 셸 구조, 런 상태, 컴포넌트 매핑 |
-| `obsidian-mcp-server/` | CLI, 그리고 팔레트의 원본 (`src/cli/theme/`) |
 
 ## Fathomark 테마 쓰기
 

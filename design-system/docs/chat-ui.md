@@ -7,9 +7,8 @@ Obsidian 오른쪽 패널에 사는 사이드바 에이전트. 이 문서는 디
 기준 폭은 **400px** — Obsidian 오른쪽 사이드바의 실사용 폭입니다. 레이아웃은 대략
 320–520px에서 버텨야 하고, 아래의 어떤 것도 정확한 폭에 의존하지 않습니다.
 
-토큰은 [`src/styles/fathomark.css`](../src/styles/fathomark.css)에 있습니다. 모든 색은
-LLaMA CLI 테마(`obsidian-mcp-server/src/cli/theme/`)에서 왔고, 그래서 플러그인과
-터미널이 하나의 제품으로 읽힙니다.
+토큰은 [`src/styles/fathomark.css`](../src/styles/fathomark.css)에 있고, 모든 색의 원본도
+이 파일입니다.
 
 ---
 
