@@ -1,8 +1,10 @@
 import { z } from "zod"
 
 import type { VaultEvidenceReference } from "../context/evidence"
+import { type SemanticBackend, searchHybrid } from "./hybrid-search"
+import { DEFAULT_EXPERIENCE_RULE, type ExperienceRule } from "./note-kind"
 import type { ToolRegistry } from "./registry"
-import { type VaultReader, excerptForHeading, searchVault } from "./vault-search"
+import { type VaultReader, excerptForHeading } from "./vault-search"
 
 export type { VaultReader } from "./vault-search"
 
@@ -33,7 +35,14 @@ const outputSchema = z.object({
   error: errorSchema.optional(),
 }) as unknown as z.ZodType<VaultToolOutput>
 
-export function registerVaultTools(registry: ToolRegistry, vault: VaultReader): void {
+export function registerVaultTools(
+  registry: ToolRegistry,
+  vault: VaultReader,
+  /** Read on every call, so a changed setting applies without re-registering. */
+  experienceRule: () => ExperienceRule = () => DEFAULT_EXPERIENCE_RULE,
+  /** Read on every call. Undefined, or an empty index, means keyword search only. */
+  semantic: () => SemanticBackend | undefined = () => undefined
+): void {
   registry.register({
     name: "search_vault",
     description: "Search Markdown notes in the user's Vault for relevant paragraphs.",
@@ -53,7 +62,8 @@ export function registerVaultTools(registry: ToolRegistry, vault: VaultReader): 
     timeoutMs: 10_000,
     resultBudgetTokens: 1_400,
     provenance: (output) => output.references,
-    run: async ({ query, limit }, context) => searchVault(vault, query, limit ?? 5, context.signal),
+    run: async ({ query, limit }, context) =>
+      searchHybrid(vault, query, limit ?? 5, context.signal, experienceRule(), semantic()),
   })
 
   registry.register({
