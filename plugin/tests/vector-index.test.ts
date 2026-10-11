@@ -38,6 +38,19 @@ describe("VectorIndex", () => {
     expect(calls).toHaveLength(2)
   })
 
+  it("writes the store only when a sync changed something", async () => {
+    const store = memoryStore()
+    let saves = 0
+    const counting = { ...store, save: async (index: StoredIndex) => { saves += 1; await store.save(index) } }
+    const index = new VectorIndex(fakeEmbedder(), counting)
+    const source = sourceOf({ "a.md": { content: "알파 노트", mtime: 1 } })
+    await index.sync(source, signal)
+    await index.sync(source, signal)
+    expect(saves).toBe(1)
+    await index.sync(sourceOf({}), signal)
+    expect(saves).toBe(2)
+  })
+
   it("re-embeds only the note whose mtime changed and drops deleted notes", async () => {
     const index = new VectorIndex(fakeEmbedder())
     await index.sync(sourceOf({ "a.md": { content: "알파", mtime: 1 }, "b.md": { content: "베타", mtime: 1 } }), signal)

@@ -120,8 +120,8 @@ export class VectorIndex {
         embedded += 1
       }
     } finally {
-      // An aborted or failed sync still keeps the notes it finished.
-      await this.persist()
+      // An aborted or failed sync still keeps the notes it finished. An unchanged one writes nothing.
+      if (embedded || removed) await this.persist()
     }
     return { embedded, removed, unchanged }
   }
