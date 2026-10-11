@@ -6,7 +6,8 @@ export async function* decodeNdjson(
   const decoder = new TextDecoder()
   let buffer = ""
   const onAbort = () => {
-    void reader.cancel(signal.reason)
+    // A fetch abort has usually errored the body already, so cancel rejects.
+    reader.cancel(signal.reason).catch(() => {})
   }
   signal.addEventListener("abort", onAbort, { once: true })
 
