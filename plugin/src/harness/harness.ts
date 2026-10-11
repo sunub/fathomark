@@ -29,7 +29,8 @@ export interface HarnessOptions {
   readonly provider: ModelProvider;
   readonly tools: ToolRegistry;
   readonly limits: BudgetLimits;
-  readonly permissions: PermissionContext;
+  /** Read on every request, so a changed setting applies without a new harness. */
+  readonly permissions: () => PermissionContext;
   readonly model: string;
   readonly counter: RequestCounter;
   readonly runTimeoutMs?: number;
@@ -100,7 +101,7 @@ export class AgentHarness {
           tools: this.options.tools,
           limits: this.options.limits,
           counter: this.options.counter,
-          permissions: () => this.options.permissions,
+          permissions: this.options.permissions,
         },
         controller.signal,
       );

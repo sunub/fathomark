@@ -14,6 +14,7 @@ export type Capability =
   | "read_note"
   | "ask_user"
   | "save_working_note"
+  | "propose_revision"
   | "read_public_source"
   | "insert_into_current_note"
   | "modify_multiple_notes"
@@ -43,6 +44,8 @@ export function decide(capability: Capability, context: PermissionContext): Deci
     case "ask_user":
     // Touches only the run-scoped working state, never the Vault.
     case "save_working_note":
+    // Returns a proposal and checks it. Writing it to a note is a separate, approved application action.
+    case "propose_revision":
       return { allowed: true, requiresApproval: false }
 
     /*

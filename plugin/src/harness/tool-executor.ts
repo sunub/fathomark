@@ -4,6 +4,7 @@ import type { ToolExecutionContext } from "../tools/registry"
 import type { ToolRegistry } from "../tools/registry"
 import { decide, type PermissionContext } from "./policy"
 import { raceWithSignal } from "./abort"
+import { isToolInStage, type RunStage } from "./stage"
 
 export type ToolExecutionErrorCode =
   | "unknown_tool"
@@ -24,10 +25,16 @@ export async function executeTool(
   call: ModelToolCall,
   registry: ToolRegistry,
   permissions: () => PermissionContext,
-  context: ToolExecutionContext
+  context: ToolExecutionContext,
+  stage: RunStage = "explore"
 ): Promise<{ content: string; references: readonly EvidenceReference[] }> {
   const tool = registry.get(call.name)
   if (!tool) throw new ToolExecutionError("unknown_tool", `${call.name} is not a Fathomark tool.`)
+
+  // A tool the stage withholds is refused like a denied capability, so the run goes on.
+  if (!isToolInStage(tool.name, stage)) {
+    throw new ToolExecutionError("permission_denied", `${tool.name} is not available in this stage.`)
+  }
 
   const decision = decide(tool.capability, permissions())
   if (!decision.allowed) throw new ToolExecutionError("permission_denied", decision.reason)

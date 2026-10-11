@@ -10,9 +10,10 @@ import type { ToolRegistry } from "../tools/registry";
 import type { BudgetLimits } from "./budget";
 import type { RunEvent, RunId } from "./events";
 import type { RunInput } from "./run-input";
-import type { PermissionContext } from "./policy";
+import { decide, type PermissionContext } from "./policy";
 import { raceWithSignal } from "./abort";
 import { handleToolCall } from "./tool-call-handler";
+import { isToolInStage, type RunStage } from "./stage";
 import { MAX_MODEL_ROUNDS, type LoopState, type ToolCallDeps } from "./loop-state";
 
 interface LoopOptions {
@@ -81,6 +82,22 @@ async function* streamModelRound(
   return { calls, assistantText, doneReason };
 }
 
+/** The tools the model may see right now: installed, in this stage, and permitted. */
+export function offeredTools(
+  tools: ToolRegistry,
+  stage: RunStage,
+  permissions: PermissionContext,
+): ModelRequest["tools"] {
+  return tools
+    .definitions()
+    .filter((tool) => isToolInStage(tool.name, stage) && decide(tool.capability, permissions).allowed)
+    .map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    }));
+}
+
 function createLoopState(input: RunInput): LoopState {
   return {
     history: input.packet.conversation.map((turn) => ({ role: turn.role, content: turn.text })),
@@ -101,20 +118,20 @@ export async function* runAgentLoop(
   signal: AbortSignal,
 ): AsyncIterable<RunEvent> {
   const state = createLoopState(input);
-  const toolSchemas = options.tools.definitions().map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    parameters: tool.parameters,
-  }));
+  const stage = input.stage ?? "explore";
   const deps: ToolCallDeps = {
     tools: options.tools,
     permissions: options.permissions,
     researchTopic: input.packet.researchTopic,
+    stage,
     signal,
   };
 
   for (let round = 0; round < MAX_MODEL_ROUNDS; round += 1) {
     signal.throwIfAborted();
+    // Offered per request, so a changed setting applies from the next one. A
+    // hidden tool named anyway is still refused by executeTool's permission check.
+    const toolSchemas = offeredTools(options.tools, stage, options.permissions());
     const { request, usage } = await buildRequest(
       input,
       state.history,

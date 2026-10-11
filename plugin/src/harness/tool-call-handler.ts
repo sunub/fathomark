@@ -56,7 +56,7 @@ export async function* handleToolCall(
   };
 
   try {
-    const result = await executeTool(call, deps.tools, deps.permissions, context);
+    const result = await executeTool(call, deps.tools, deps.permissions, context, deps.stage);
     for (const query of researchQueries) {
       yield { type: "research_query", runId, query: query.query, language: query.language };
     }

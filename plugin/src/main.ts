@@ -48,7 +48,7 @@ export default class FathomarkPlugin extends Plugin {
       provider: new FakeModelProvider({ chunkDelayMs: 40, firstEventDelayMs: 250 }),
       tools,
       limits: PROPOSED_LIMITS,
-      permissions: { networkResearchEnabled: this.settings.networkResearchEnabled },
+      permissions: () => ({ networkResearchEnabled: this.settings.networkResearchEnabled }),
       model: this.settings.model,
       // Fake-provider counter only; a real provider needs a verified profile.
       counter: fakeRequestCounter,

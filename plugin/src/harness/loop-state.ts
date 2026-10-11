@@ -3,6 +3,7 @@ import type { ResearchTopic } from "../context/packet";
 import type { ModelMessage } from "../providers/types";
 import type { ToolRegistry } from "../tools/registry";
 import type { PermissionContext } from "./policy";
+import type { RunStage } from "./stage";
 
 export const MAX_MODEL_ROUNDS = 8;
 export const MAX_CALLS_TOTAL = 12;
@@ -24,6 +25,7 @@ export interface ToolCallDeps {
   readonly tools: ToolRegistry;
   readonly permissions: () => PermissionContext;
   readonly researchTopic: ResearchTopic | null;
+  readonly stage: RunStage;
   readonly signal: AbortSignal;
 }
 

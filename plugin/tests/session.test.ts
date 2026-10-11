@@ -21,7 +21,7 @@ function createHarness(provider = new FakeModelProvider({ chunks: ["a", "b"] }))
     provider,
     tools: new ToolRegistry(),
     limits: PROPOSED_LIMITS,
-    permissions: { networkResearchEnabled: false },
+    permissions: () => ({ networkResearchEnabled: false }),
     model: "fake",
     counter: fakeRequestCounter,
   })

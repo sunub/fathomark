@@ -44,7 +44,7 @@ function harnessWith(
     provider,
     tools,
     limits: PROPOSED_LIMITS,
-    permissions: { networkResearchEnabled: false },
+    permissions: () => ({ networkResearchEnabled: false }),
     model: "m",
     counter,
   })
