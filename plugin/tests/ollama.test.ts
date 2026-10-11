@@ -74,6 +74,37 @@ describe("NDJSON decoding", () => {
     await expect(running).rejects.toMatchObject({ name: "AbortError" })
     expect(cancel).toHaveBeenCalledOnce()
   })
+
+  it("does not leave a rejected cancel unhandled when aborted", async () => {
+    const unhandled: unknown[] = []
+    const listener = (reason: unknown) => unhandled.push(reason)
+    process.on("unhandledRejection", listener)
+    try {
+      // A fetch abort errors the body stream first, so cancelling it rejects.
+      const body = new ReadableStream<Uint8Array>({
+        pull() {
+          return new Promise(() => {})
+        },
+        cancel() {
+          return Promise.reject(new DOMException("This operation was aborted", "AbortError"))
+        },
+      })
+      const controller = new AbortController()
+      const collect = async () => {
+        for await (const _value of decodeNdjson(body, controller.signal)) {
+          // consume
+        }
+      }
+      const running = collect()
+      controller.abort(new DOMException("stop", "AbortError"))
+      await expect(running).rejects.toMatchObject({ name: "AbortError" })
+
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(unhandled).toEqual([])
+    } finally {
+      process.off("unhandledRejection", listener)
+    }
+  })
 })
 
 describe("Ollama provider", () => {
