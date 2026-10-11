@@ -99,6 +99,15 @@ describe("vault tools", () => {
     ])
   })
 
+  it("keeps the supported verdict and reason through output validation", async () => {
+    const tool = registry({ listNotes: () => [], readNote: async () => null }).get("search_vault")!
+    const verdict = { references: [], omitted: [], supported: false, reason: "no_match" }
+
+    expect(tool.output.parse(verdict)).toEqual(verdict)
+    expect(tool.output.safeParse({ references: [], omitted: [] }).success).toBe(false)
+    expect(tool.output.safeParse({ ...verdict, reason: "other" }).success).toBe(false)
+  })
+
   it("starts no additional reads after cancellation", async () => {
     const controller = new AbortController()
     const readNote = vi.fn(async () => {
