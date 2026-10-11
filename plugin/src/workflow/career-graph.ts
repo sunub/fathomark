@@ -2,6 +2,7 @@ import { z, type ZodType } from "zod";
 import { registerEvidence, type CitedEvidence, type EvidenceReference } from "../context/evidence";
 import { draftSchema, verifyClaims, type CareerDraft } from "../context/claims";
 import { assertBudget } from "../context/token-budget";
+import { estimateTokens } from "../context/local-counter";
 import type { EditorTarget } from "../context/insertion";
 import type { ModelProvider, ModelRequest, ModelEvent, RequestCounter } from "../providers/types";
 import { callStructured } from "../providers/structured";
@@ -99,7 +100,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
     const queries: Array<{ query: string; language: "ko" | "en" }> = [];
     let result: Awaited<ReturnType<typeof executeTool>>;
     try {
-      result = await executeTool({ name, args, callId }, deps.tools, deps.permissions, { signal, researchTopic: input.packet.researchTopic, allowedWikipediaPages: state.allowedWikipediaPages, permissions: deps.permissions, onResearchQuery: (query, language) => queries.push({ query, language }), countResultTokens: content => new TextEncoder().encode(content).length }, "explore");
+      result = await executeTool({ name, args, callId }, deps.tools, deps.permissions, { signal, researchTopic: input.packet.researchTopic, allowedWikipediaPages: state.allowedWikipediaPages, permissions: deps.permissions, onResearchQuery: (query, language) => queries.push({ query, language }), countResultTokens: estimateTokens }, "explore");
     } catch (error) {
       if (signal.aborted) throw error;
       for (const query of queries) yield { type: "research_query", runId, ...query };
