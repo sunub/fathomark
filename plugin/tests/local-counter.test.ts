@@ -18,3 +18,10 @@ it("rejects invalid request limits rather than comparing against NaN", async () 
   await expect(assertBudget(request, { ...PROPOSED_LIMITS, requestView: NaN }, createLocalCounter())).rejects.toThrow(/limit/)
   await expect(assertBudget({ ...request, maxOutputTokens: 2000 }, PROPOSED_LIMITS, createLocalCounter())).rejects.toThrow(/reserve/)
 })
+
+it("does not count a response schema, which constrains output and never enters the prompt", async () => {
+  const request: ModelRequest = { model: "m", messages: [{ role: "user", content: "한글" }], tools: [], maxOutputTokens: 1400, contextWindow: 16000 }
+  const counter = createLocalCounter()
+  const schema = { type: "object", properties: { text: { type: "string", description: "x".repeat(2000) } } }
+  expect((await counter.count({ ...request, responseSchema: schema })).promptTokens).toBe((await counter.count(request)).promptTokens)
+})
