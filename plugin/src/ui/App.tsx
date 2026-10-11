@@ -57,7 +57,7 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
   const showPreview = (recapture?: boolean) => {
     const preview = commands.previewAnswer(recapture);
     setInsertionPreview(preview);
-    setPreviewNotice(preview ? null : commands.previewBlockedReason());
+    setPreviewNotice(preview ? null : commands.previewBlockedReason(recapture));
   };
 
   return (

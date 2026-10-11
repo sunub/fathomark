@@ -76,8 +76,8 @@ export interface PanelCommands {
   saveStyle(): Promise<void>
   setDraft(draft: string): void
   previewAnswer(recapture?: boolean): InsertionPreview | null
-  /** Why the last previewAnswer returned null, or null when there is nothing to explain. */
-  previewBlockedReason(): string | null
+  /** Why the last previewAnswer returned null, or null when there is nothing to explain. `recapture` matches that call. */
+  previewBlockedReason(recapture?: boolean): string | null
   approveInsertion(id: string): InsertionPreview | null
   discardInsertion(id: string): InsertionPreview | null
 }

@@ -121,8 +121,9 @@ export class ChatView extends ItemView {
               await this.styleStore.persist();
             },
             setDraft: (draft) => this.session.setDraft(draft),
-            previewBlockedReason: () => {
+            previewBlockedReason: (recapture = false) => {
               if (this.session.lastRequest()?.input.mode === "career") {
+                if (recapture) return "문서가 바뀌어 검증한 글을 그대로 적용할 수 없습니다. 같은 요청을 다시 실행해 바뀐 문서 기준으로 새로 검증해 주세요.";
                 const final = this.session.getVerifiedDraft();
                 return final?.target ? null : "검증된 글과 적용할 문서가 있어야 미리보기를 만들 수 있습니다.";
               }

@@ -14,7 +14,7 @@ function snapshot(events: RunEvent[], state: RunSnapshot["state"] = "complete"):
 }
 
 function commands() {
-  const previewBlockedReason = vi.fn<() => string | null>(() => null)
+  const previewBlockedReason = vi.fn<(recapture?: boolean) => string | null>(() => null)
   const previewAnswer = vi.fn<(recapture?: boolean) => InsertionPreview | null>(() => null)
   const approveInsertion = vi.fn<(id: string) => InsertionPreview | null>(() => null)
   const discardInsertion = vi.fn<(id: string) => InsertionPreview | null>(() => null)
@@ -184,6 +184,25 @@ describe("app snapshot rendering", () => {
     fireEvent.click(screen.getByRole("button", { name: "Approve insertion" }))
     fireEvent.click(screen.getByRole("button", { name: "Recreate preview" }))
     expect(appCommands.previewAnswer).toHaveBeenLastCalledWith(true)
+  })
+
+  it("explains a refused recreate instead of silently dropping the stale preview", () => {
+    const stale = { id: "preview-1", targetId: "target-1", path: "A.md", from: { line: 0, ch: 0 }, to: { line: 0, ch: 1 }, before: "a", after: "b", status: "stale" as const }
+    const appCommands = commands()
+    appCommands.previewAnswer.mockReturnValueOnce({ ...stale, status: "pending" as const }).mockReturnValueOnce(null)
+    appCommands.approveInsertion.mockReturnValue(stale)
+    appCommands.previewBlockedReason.mockImplementation((recapture?: boolean) => (recapture ? "다시 실행해 새로 검증해 주세요." : null))
+    const current = snapshot([
+      { type: "run_started", runId, question: "질문", currentNote: null },
+      { type: "text", runId, delta: "answer" },
+    ])
+    render(<App getSnapshot={() => current} subscribe={() => () => {}} commands={appCommands} modelLabel="m" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview answer insertion" }))
+    fireEvent.click(screen.getByRole("button", { name: "Approve insertion" }))
+    fireEvent.click(screen.getByRole("button", { name: "Recreate preview" }))
+    expect(appCommands.previewBlockedReason).toHaveBeenLastCalledWith(true)
+    expect(screen.getByText("다시 실행해 새로 검증해 주세요.")).toBeTruthy()
   })
 
   it("explains why a preview cannot be made, and clears the notice on a new run", () => {
