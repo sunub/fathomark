@@ -263,7 +263,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
     selected = selected.filter(s => outline.sourceIds.includes(s.sourceId));
     yield phase("draft");
     const draftData = { instruction: input.question, applicationQuestion: analysis.applicationQuestion, criteria: analysis.criteria, original, outline: outline.outline, evidence: selected, posting: state.evidence.filter(s => s.reference.kind === "public"), style: input.packet.style?.text ?? null };
-    let draft: CareerDraft = await structured("Write the requested draft in Korean. Return {claims:[{text:string,evidence:string[]}]}. Every paragraph is a source-supported claim; each evidence array must contain actual personal source IDs. No extra prose fields. Preserve all requested facts and numbers of the original when revising. Style is only wording/structure. Do not copy facts from it.", draftData, draftSchema);
+    let draft: CareerDraft = await structured("Write the requested draft in Korean. Return {claims:[{text:string,evidence:string[]}]}. Every paragraph is a source-supported claim; each evidence array must contain actual personal source IDs. No extra prose fields. Preserve all requested facts and numbers of the original when revising. Style is only wording/structure. Do not copy facts from it. State only what the cited sources state: do not add a role (led, owned, drove), motive, evaluation, impact or lesson they do not state. When the sources are shorter than the requested length, write a shorter draft instead of filling it.", draftData, draftSchema);
     for (let attempt = 0; attempt <= 1; attempt++) {
       yield phase("verify");
       const structural = verifyClaims(draft, selected, input.packet.style?.text);
@@ -284,7 +284,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
       }
       if (attempt === 1 || meaning.needsNewFacts) throw new Incomplete(issues.join("\n") || "필수 사실 검증을 통과하지 못했습니다.");
       yield phase("repair");
-      draft = await structured("Repair the draft once using only supplied evidence. Return {claims:[{text:string,evidence:string[]}]}. Never resolve missing facts by invention.", { ...draftData, draft, issues }, draftSchema);
+      draft = await structured("Repair the draft once using only supplied evidence. Return {claims:[{text:string,evidence:string[]}]}. Never resolve missing facts by invention. Delete each phrase an issue names, or restate it exactly as the source states it; never replace it with another unstated claim. A shorter draft is acceptable.", { ...draftData, draft, issues }, draftSchema);
     }
   } catch (error) {
     if (signal.aborted) throw error;
