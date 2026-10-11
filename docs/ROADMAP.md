@@ -57,7 +57,7 @@ Retrieval is the critical risk of the career-writing workflow, so this phase is 
 - Report "no supporting note" instead of letting the model fill the gap
 - Build a lexical retrieval evaluation set from real application questions
 - Measure selection accuracy and answer grounding
-- Introduce embeddings or reranking only if lexical retrieval fails an agreed target
+- Introduce embeddings or reranking only if lexical retrieval fails the agreed target (2026-10-06, measured on a real-notes evaluation set of 20+ answerable questions; all four must hold): recall@3 ≥ 0.75, no-evidence block rate ≥ 0.90, wrongly blocked answerable questions ≤ 0.20, non-experience note ranked first ≤ 0.10. Definitions and current numbers: `docs/superpowers/plans/2026-10-05-career-s2-retrieval-ranking.md`
 
 ## Phase 4 — Hosted providers and broader network tools
 

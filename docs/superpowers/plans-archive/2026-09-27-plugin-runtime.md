@@ -1,3 +1,6 @@
+> **보관된 계획 (사용하지 않음)**: 2026-09-27 계획. 로컬 모델 대화 기반(P0~P4, P7)은 일부 구현됐고, 이후 커리어 글쓰기 방향(ADR 0007)으로 대체되었다. P5(LangChain)는 S0, P6(Wikipedia)는 현재 목표 밖이다.
+> 현재 계획은 `../plans/2026-10-05-career-writing-index.md`와 `docs/DIRECTION.md`를 따른다. 실행하지 말고 참고용으로만 읽는다.
+
 # Plugin Runtime Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

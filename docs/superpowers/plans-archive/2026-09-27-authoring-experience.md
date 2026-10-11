@@ -1,3 +1,6 @@
+> **보관된 계획 (사용하지 않음)**: 2026-09-27 계획. 문체(A2)는 S5, 미리보기·승인·삽입(A3)은 S11로 대체되었다. 패널(A1)과 생명주기 검증(A4)만 참고할 가치가 있다.
+> 현재 계획은 `../plans/2026-10-05-career-writing-index.md`와 `docs/DIRECTION.md`를 따른다. 실행하지 말고 참고용으로만 읽는다.
+
 # Authoring Experience Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

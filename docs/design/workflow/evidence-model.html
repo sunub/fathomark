@@ -1,0 +1,48 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>근거·공유 상태의 계약</title><style>
+:root{color-scheme:light;--navy:#17314f;--text:#263746;--muted:#647486;--line:#d9e2eb;--blue:#2368aa;--paper:#fff;--wash:#f4f7fa}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;color:var(--text);background:var(--wash);font:16px/1.85 -apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+.layout{display:grid;grid-template-columns:230px minmax(0,1100px);max-width:1380px;margin:0 auto;gap:30px;padding:35px 24px 90px}aside{position:sticky;top:28px;align-self:start;max-height:90vh;overflow:auto;padding:10px 0}aside strong{display:block;font-size:18px;color:var(--navy);margin-bottom:12px}nav a{display:block;margin:7px 0;text-decoration:none;color:var(--muted);font-size:14px;line-height:1.6;padding:4px 0}nav a:hover{color:var(--blue)}
+main{min-width:0;background:var(--paper);padding:48px 48px 65px;border-radius:14px}h1{font-size:32px;line-height:1.4;letter-spacing:-.03em;color:var(--navy);margin:0 0 24px}h2{font-size:25px;line-height:1.5;letter-spacing:-.02em;color:var(--navy);margin:55px 0 18px;padding-top:20px;border-top:1px solid var(--line)}h3{font-size:20px;color:var(--navy);margin:30px 0 14px}h4{font-size:17px;margin:24px 0 10px}p{margin:13px 0}a{color:var(--blue);overflow-wrap:anywhere}code{font-size:.9em;background:#eef3f8;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}pre{overflow:auto;background:#f2f5f8;border-radius:6px;padding:16px;line-height:1.65}pre code{padding:0;background:none}blockquote{margin:20px 0;padding:10px 20px;border-left:3px solid #df9d70;background:#fff7f0}ul,ol{padding-left:25px}li{margin:6px 0}strong{color:var(--navy)}.table-scroll{max-width:100%;overflow-x:auto;margin:20px 0}table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.7}th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}th{background:#f1f5f9;color:var(--navy);font-weight:600}figure{margin:24px 0 8px}.diagram{border:0;padding:0;background:transparent;width:100%;cursor:zoom-in}.diagram img{display:block;width:100%;height:auto}.caption{font-size:13px;color:var(--muted);margin:8px 0 24px}.actions{display:flex;gap:10px;margin:25px 0;font-size:14px}.actions button{font:inherit;color:var(--blue);background:#eef4fa;border:1px solid var(--line);border-radius:5px;padding:7px 12px;cursor:pointer}
+dialog{border:0;border-radius:8px;max-width:96vw;max-height:96vh;padding:40px 12px 12px}dialog::backdrop{background:rgba(12,23,38,.8)}dialog img{display:block;max-width:90vw;max-height:86vh;width:auto;height:auto;object-fit:contain}dialog button{position:absolute;right:12px;top:7px;border:0;background:#eef3f8;border-radius:4px;padding:5px 12px;cursor:pointer;font:inherit}
+@media(max-width:1000px){.layout{grid-template-columns:1fr;padding:16px;gap:15px}aside{position:static;max-height:none}nav{display:flex;flex-wrap:wrap;gap:8px 15px}nav a{margin:0}main{padding:28px 22px}h1{font-size:27px}h2{font-size:22px}}
+@media print{@page{size:A4;margin:17mm}body{background:#fff;font-size:10pt;line-height:1.65}.layout{display:block;padding:0;max-width:none}aside,.actions,dialog{display:none!important}main{padding:0;border-radius:0}h1{font-size:23pt}h2{font-size:17pt;margin:28px 0 12px;break-after:avoid}h3{font-size:13pt;break-after:avoid}figure{break-inside:avoid}.diagram img{max-height:240mm;object-fit:contain}table{font-size:9pt}tr{break-inside:avoid}pre{white-space:pre-wrap}a{color:inherit;text-decoration:none}.table-scroll{overflow:visible}}
+</style></head><body><div class="layout"><aside><strong>Fathomark 기능별 문서</strong><nav><a href="README.html">전체 문서 목차</a><a href="tools/README.html">도구별 문서 목차</a><hr></nav><div class="actions"><button onclick="window.print()">인쇄</button></div></aside><main><h1>근거·공유 상태의 계약</h1>
+<p>상태: <strong>설계 초안 · 구현 전</strong><br>기준일: 2026-10-11<br><a href="README.html">문서 목차</a></p>
+<p>💡 <strong>근거표</strong>: 글에 사용할 주장과 이를 뒷받침하는 구절을 연결한 표다. 확인된 사실, 사용자 보충, 모델 해석과 누락을 구분한다. <strong>출처 계보</strong>는 그 정보가 어디서 왔는지 식별자로 추적하는 기록이다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>정보 종류</th>
+<th>보존할 항목</th>
+<th>허용 용도</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>경험 노트</td>
+<td>노트 ID·위치·원문 구절</td>
+<td>사용자의 경험에 관한 주장 지원</td>
+</tr>
+<tr>
+<td>사용자 보충</td>
+<td>실행 ID·질문 ID·답변 ID·원문 답변</td>
+<td>사용자가 직접 확인한 사실. 노트 인용으로 표시하지 않음</td>
+</tr>
+<tr>
+<td>공개 자료</td>
+<td>URL·제목·구절·수집 시각</td>
+<td>회사·직무 요구사항과 배경 설명</td>
+</tr>
+<tr>
+<td>문체 참고</td>
+<td>문체 규칙·별도 참고 범위</td>
+<td>표현과 구성 참고. 원본의 역할·수치·사건 복사 금지</td>
+</tr>
+<tr>
+<td>모델 해석·작업 메모</td>
+<td>관련 출처 ID·해석 표시</td>
+<td>경험 비교·개요 선택. 새로운 사실로 승격 금지</td>
+</tr>
+</tbody></table></div>
+<p>각 실행은 요청과 작성 조건, 현재 단계, 허용 자료, 근거·누락·충돌, 행동 이력·누적 한도, 질문·대기 상태, 초안·주장별 출처, 수정 횟수·검증 결과, 미리보기 버전·대상·승인을 공유한다. 도구 결과는 성공·부분 성공·결과 없음·오류를 구분한다. 일반 설명문을 읽고 상태 전이를 추측하지 않는다.</p>
+<p>상태는 요청 정리, 탐색, 사용자 입력 대기, 작성 가능성 확인, 초안, 검증, 미리보기, 승인 대기, 적용, 완료·미완료·취소로 구분한다. 단계와 대기는 같은 축으로 구현할지 별도 상태로 구현할지 후속 계약에서 결정하되, 대기 중 실행이 이어지지 않는 조건은 유지한다.</p>
+</main></div><dialog id="image-dialog"><button id="close-image" type="button">닫기</button><img alt="확대한 다이어그램"></dialog><script>const dialog=document.getElementById('image-dialog');document.querySelectorAll('.diagram').forEach(button=>button.addEventListener('click',()=>{const image=button.querySelector('img');dialog.querySelector('img').src=image.src;dialog.querySelector('img').alt=image.alt;dialog.showModal()}));document.getElementById('close-image').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});</script></body></html>
