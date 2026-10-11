@@ -11,11 +11,13 @@ import {
 } from "./loop-state";
 import { executeTool, ToolExecutionError } from "./tool-executor";
 
-function toolErrorEndsRun(error: unknown, state: LoopState): boolean {
-  if (error instanceof ToolExecutionError && error.code === "invalid_input") {
-    state.repairRounds += 1;
-    return state.repairRounds > 1;
-  }
+function isInvalidInput(error: unknown): boolean {
+  return error instanceof ToolExecutionError && error.code === "invalid_input";
+}
+
+/** Reads state only; the caller records an invalid input before asking. */
+function endsRunAfterToolError(error: unknown, state: LoopState): boolean {
+  if (isInvalidInput(error)) return state.repairRounds > 1;
   return !(error instanceof ToolExecutionError && error.code === "permission_denied");
 }
 
@@ -85,6 +87,7 @@ export async function* handleToolCall(
     });
 
     yield { type: "tool_failed", runId, callId: call.callId, reason };
-    return toolErrorEndsRun(error, state) ? { outcome: "failed", reason: "tool_error" } : null;
+    if (isInvalidInput(error)) state.repairRounds += 1;
+    return endsRunAfterToolError(error, state) ? { outcome: "failed", reason: "tool_error" } : null;
   }
 }

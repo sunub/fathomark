@@ -12,7 +12,7 @@ import type { RunEvent, RunId } from "./events";
 import type { RunInput } from "./run-input";
 import type { PermissionContext } from "./policy";
 import { raceWithSignal } from "./abort";
-import { handleToolCall } from "./langchain-loop-calls";
+import { handleToolCall } from "./tool-call-handler";
 import { MAX_MODEL_ROUNDS, type LoopState, type ToolCallDeps } from "./loop-state";
 
 interface LoopOptions {

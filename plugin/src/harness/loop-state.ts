@@ -27,8 +27,10 @@ export interface ToolCallDeps {
   readonly signal: AbortSignal;
 }
 
+export type ToolStopReason = "tool_limit" | "tool_error";
+
 /** Why the tool phase ended the whole run. */
 export interface ToolStop {
   readonly outcome: "incomplete" | "failed";
-  readonly reason: string;
+  readonly reason: ToolStopReason;
 }

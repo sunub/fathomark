@@ -16,7 +16,7 @@ import type { ModelProvider, RequestCounter } from "../providers/types";
 import type { ToolRegistry } from "../tools/registry";
 import { type BudgetLimits, emptyUsage } from "./budget";
 import type { RunEvent, RunEventListener, RunId } from "./events";
-import { runAgentLoop } from "./langchain-loop";
+import { runAgentLoop } from "./agent-loop";
 import type { PermissionContext } from "./policy";
 import type { RunInput } from "./run-input";
 import { type RunState, isActive, transition } from "./run-state";

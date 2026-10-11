@@ -3,7 +3,7 @@ import { z } from "zod"
 
 import { PROPOSED_LIMITS } from "../src/harness/budget"
 import type { RunEvent, RunId } from "../src/harness/events"
-import { runAgentLoop } from "../src/harness/langchain-loop"
+import { runAgentLoop } from "../src/harness/agent-loop"
 import { executeTool } from "../src/harness/tool-executor"
 import type { RunInput } from "../src/harness/harness"
 import type { ModelEvent, ModelProvider, ModelRequest, RequestCounter } from "../src/providers/types"
