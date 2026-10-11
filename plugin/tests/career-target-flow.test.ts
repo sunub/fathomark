@@ -31,7 +31,7 @@ const analysis = {
 }
 const readiness = { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] }
 const outline = { sourceIds: ["S1"], outline: ["Personal action"] }
-const supported = { supported: true, issues: [], needsNewFacts: false }
+const supported = { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true }
 const draft = (text: string) => ({ claims: [{
   text: text === first.text ? "I helped with testing." : text === second.text ? "I improved the docs." : text,
   evidence: ["S1"],

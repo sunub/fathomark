@@ -20,7 +20,7 @@ describe("career input and runtime wiring", () => {
       { ready: true, sourceIds: ["S2"], missing: [], conflicts: [] },
       { sourceIds: ["S2"], outline: ["My action"] },
       { claims: [{ text: "I helped with testing.", evidence: ["S2"] }] },
-      { supported: true, issues: [], needsNewFacts: false },
+      { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true },
     ];
     const provider: ModelProvider = { id: "scripted", health: async () => ({ reachable: true, detail: "ok" }), listModels: async () => [], stream: async function* (request) { const response = responses[requests.length]; requests.push(request); yield { type: "text", delta: JSON.stringify(response) }; yield { type: "done", reason: "stop" }; } };
     const waitForUser = vi.fn(async () => { throw new Error("Duplicate question"); });
@@ -54,7 +54,7 @@ describe("career input and runtime wiring", () => {
       { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] },
       { sourceIds: ["S1"], outline: ["action"] },
       { claims: [{ text: "I helped with testing.", evidence: ["S1"] }] },
-      { supported: true, issues: [], needsNewFacts: false },
+      { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true },
     ];
     let index = 0;
     const provider: ModelProvider = { id: "scripted", health: async () => ({ reachable: true, detail: "ok" }), listModels: async () => [], stream: async function* () { yield { type: "text", delta: JSON.stringify(responses[index++]) }; yield { type: "done", reason: "stop" }; } };

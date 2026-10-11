@@ -7,8 +7,8 @@ import type { RunInput } from "../src/harness/run-input"
 import type { ModelProvider, ModelRequest, RequestCounter } from "../src/providers/types"
 import { createToolRegistry } from "../src/tools/create-registry"
 
-const supported = { supported: true, issues: [], needsNewFacts: false }
-const failed = { supported: false, issues: ["Role changed"], needsNewFacts: false }
+const supported = { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true }
+const failed = { checks: [{ claim: "draft", evidence: "", differences: ["Role changed"], sameMeaning: false }], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: false }
 const analysis = { intent: "revise", applicationQuestion: "", criteria: "명확하게", query: "경험", requiredFacts: [] }
 const ready = { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] }
 const outline = { sourceIds: ["S1"], outline: ["본인 행동"] }

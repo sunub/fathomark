@@ -12,7 +12,7 @@ const analysis = { intent: "revise", applicationQuestion: "", criteria: "shorter
 const ready = { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] };
 const outline = { sourceIds: ["S1"], outline: ["My action"] };
 const draft = { claims: [{ text: "I helped with testing.", evidence: ["S1"] }] };
-const supported = { supported: true, issues: [], needsNewFacts: false };
+const supported = { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true };
 
 async function run(responses: unknown[]) {
   let calls = 0;
@@ -33,7 +33,7 @@ describe("career workflow gates", () => {
 
   it("blocks an unsupported role change even with a valid source ID", async () => {
     const bad = { claims: [{ text: "I led the whole project.", evidence: ["S1"] }] };
-    const failed = { supported: false, issues: ["Role changed"], needsNewFacts: false };
+    const failed = { checks: [{ claim: "draft", evidence: "", differences: ["Role changed"], sameMeaning: false }], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: false };
     const { events, calls } = await run([analysis, ready, outline, bad, failed, bad, failed]);
     expect(calls).toBe(7);
     expect(events.some(e => e.type === "verified_draft")).toBe(false);
