@@ -12,6 +12,7 @@ import type { RunEvent, RunId } from "../harness/events";
 import type { RunInput } from "../harness/run-input";
 import type { PermissionContext } from "../harness/policy";
 import { executeTool } from "../harness/tool-executor";
+import { observeError } from "../harness/observation";
 import { offeredTools } from "../harness/agent-loop";
 import type { ToolRegistry } from "../tools/registry";
 import { checkRevision } from "../tools/propose-revision";
@@ -183,6 +184,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
       yield phase("explore");
       if (input.packet.currentNote) yield* tool("read_note", { path: input.packet.currentNote.path }, "current-note-1");
       yield* tool("search_vault", { query: analysis.query, limit: 3 }, "initial-search-1");
+      let inputRepairs = 0;
       for (let round = 0; canCallTools && round < CAREER_LIMITS.exploreRounds; round++) {
         const schemas = offeredTools(deps.tools, "explore", deps.permissions()).filter(t => ["search_vault", "read_note", "get_note_context", "ask_user", "read_public_source", "search_wikipedia", "read_wikipedia_page"].includes(t.name));
         const request: ModelRequest = { model: deps.model, messages: [{ role: "system", content: SYSTEM + "\nGather only necessary personal experience evidence. Use tools if more records are needed, otherwise say exploration is finished. Pasted source ID is P1. Never draft here." }, { role: "user", content: JSON.stringify({ question: analysis.applicationQuestion, requiredFacts: analysis.requiredFacts, evidence: state.evidence, researchTopic: input.packet.researchTopic }) }, ...state.history], tools: schemas, maxOutputTokens: deps.limits.outputReserve, contextWindow: deps.limits.modelContext, ...(deps.sampling ? { sampling: deps.sampling } : {}) };
@@ -201,7 +203,17 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
         state.history.push({ role: "assistant", content: "", toolCalls: calls });
         for (const call of calls) {
           if (!schemas.some(s => s.name === call.name)) throw new Incomplete("현재 단계에서 허용하지 않는 도구입니다.");
-          const output = yield* tool(call.name, call.args, call.callId);
+          let output: unknown;
+          try {
+            output = yield* tool(call.name, call.args, call.callId);
+          } catch (error) {
+            // As in the chat loop: the model may correct one malformed input and a denied tool is skipped.
+            const observation = observeError(error);
+            const recoverable = observation.code === "permission_denied" || (observation.code === "invalid_input" && ++inputRepairs <= 1);
+            if (signal.aborted || !recoverable) throw error;
+            state.history.push({ role: "tool", callId: call.callId, content: observation.content });
+            continue;
+          }
           if (call.name === "ask_user") {
             if (z.object({ answer: z.string() }).safeParse(output).success) { state.history.push({ role: "tool", callId: call.callId, content: JSON.stringify(output) }); continue; }
             const question = z.object({ request: z.object({ question: z.string(), options: z.array(z.string()).optional() }) }).parse(output).request;
