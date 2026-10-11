@@ -47,6 +47,8 @@ interface FlowResult {
  *   FATHOMARK_LIVE_FOLDER  experience folder setting, default 경험
  *   FATHOMARK_LIVE_SEMANTIC  set to 1 to fuse keyword search with bge-m3 embeddings (as the app does when enabled)
  *   FATHOMARK_LIVE_JUDGE   set to 1 to also let the live model judge each candidate note (needs SEMANTIC)
+ *   FATHOMARK_LIVE_CASES   optional comma-separated case ids to run
+ *   FATHOMARK_LIVE_VERBOSE set to 1 to print each verified draft with the notes it cites (fixture notes only)
  * The simulated user knows nothing beyond the vault, so a question can only end a run as incomplete.
  * It reports rates and does not gate: there is no agreed pass line for the whole flow yet.
  */
@@ -71,7 +73,8 @@ describe.skipIf(!liveModel)("live career workflow", () => {
 
     for (const [split, path] of splits) {
       const cases = JSON.parse(readFileSync(path, "utf8")) as FlowCase[]
-      for (const item of cases) {
+      const only = process.env.FATHOMARK_LIVE_CASES?.split(",")
+      for (const item of cases.filter((entry) => !only || only.includes(entry.id))) {
         for (let rep = 0; rep < reps; rep++) {
           const provider = createOllamaProvider(base)
           let modelCalls = 0
@@ -101,6 +104,7 @@ describe.skipIf(!liveModel)("live career workflow", () => {
             if (event.type === "workflow_incomplete") reason = event.message
             if (event.type === "run_completed") outcome = event.outcome
           }
+          if (process.env.FATHOMARK_LIVE_VERBOSE === "1") console.log(`--- ${item.id}\n${draft || reason}\n${[...sources].map(([id, note]) => `${id}=${note}`).join(" ")}`)
           const expected = item.expected.map((note) => note.normalize("NFC"))
           const cited = [...draft.matchAll(/\[\[(S\d+)\]\]/g)].map((match) => sources.get(match[1]!))
           results.push({
