@@ -12,6 +12,9 @@ export type Capability =
   | "read_current_note"
   | "search_vault"
   | "read_note"
+  | "ask_user"
+  | "save_working_note"
+  | "read_public_source"
   | "insert_into_current_note"
   | "modify_multiple_notes"
   | "external_model"
@@ -37,6 +40,16 @@ export function decide(capability: Capability, context: PermissionContext): Deci
     case "read_current_note":
     case "search_vault":
     case "read_note":
+    case "ask_user":
+    // Touches only the run-scoped working state, never the Vault.
+    case "save_working_note":
+      return { allowed: true, requiresApproval: false }
+
+    /*
+     * Text the user pasted into this run, read back locally. It makes no network
+     * request; reading a web address is `general_web`, which stays refused.
+     */
+    case "read_public_source":
       return { allowed: true, requiresApproval: false }
 
     case "wikipedia":
