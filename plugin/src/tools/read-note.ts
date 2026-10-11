@@ -3,7 +3,7 @@ import { z } from "zod"
 import type { VaultEvidenceReference } from "../context/evidence"
 import type { ToolRegistry } from "./registry"
 import { type VaultReader, excerptForHeading } from "./vault-search"
-import { vaultOutputSchema } from "./vault-output"
+import { boundVaultOutput, vaultOutputSchema } from "./vault-output"
 
 export const safeMarkdownPath = z
   .string()
@@ -60,7 +60,7 @@ export function registerReadNote(registry: ToolRegistry, vault: VaultReader): vo
             },
           ]
         : []
-      return { references, omitted: selected.omitted }
+      return boundVaultOutput({ references, omitted: selected.omitted }, context.countResultTokens)
     },
   })
 }

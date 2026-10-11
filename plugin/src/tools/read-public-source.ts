@@ -38,7 +38,7 @@ export interface PublicSourceReader {
 
 const readInput = z.object({ sourceId: z.string().trim().min(1).max(100) }).strict()
 
-interface ReadPublicSourceOutput {
+export interface ReadPublicSourceOutput {
   readonly source: {
     readonly sourceId: string
     readonly title: string
@@ -99,7 +99,8 @@ export function registerReadPublicSourceTool(registry: ToolRegistry, sources: Pu
           },
         }
       }
-      const bounded = boundedText(source.text)
+      // A conservative result estimate may allow less than the raw-text ceiling.
+      const bounded = boundedText(source.text, context.countResultTokens ? 3_000 : MAX_TEXT_BYTES)
       return {
         source: {
           sourceId,
@@ -115,23 +116,23 @@ export function registerReadPublicSourceTool(registry: ToolRegistry, sources: Pu
 }
 
 /** Keeps whole paragraphs up to the byte limit, so a cut never lands mid-sentence unless one paragraph alone is too long. */
-function boundedText(text: string): { text: string; omitted: string[] } {
+function boundedText(text: string, limit = MAX_TEXT_BYTES): { text: string; omitted: string[] } {
   const encoder = new TextEncoder()
   const paragraphs = text.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean)
   const selected: string[] = []
   let used = 0
   for (const paragraph of paragraphs) {
     const size = encoder.encode(paragraph).length + (selected.length > 0 ? 2 : 0)
-    if (used + size > MAX_TEXT_BYTES) {
+    if (used + size > limit) {
       if (selected.length === 0) {
         return {
-          text: cutToBytes(paragraph, MAX_TEXT_BYTES),
-          omitted: [`The first paragraph exceeds ${MAX_TEXT_BYTES} UTF-8 bytes and was cut.`, ...restNote(paragraphs.length - 1)],
+          text: cutToBytes(paragraph, limit),
+          omitted: [`The first paragraph exceeds ${limit} UTF-8 bytes and was cut.`, ...restNote(paragraphs.length - 1)],
         }
       }
       return {
         text: selected.join("\n\n"),
-        omitted: [`${paragraphs.length - selected.length} later paragraph(s) were omitted by the ${MAX_TEXT_BYTES} UTF-8 byte limit.`],
+        omitted: [`${paragraphs.length - selected.length} later paragraph(s) were omitted by the ${limit} UTF-8 byte limit.`],
       }
     }
     selected.push(paragraph)

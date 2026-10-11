@@ -10,6 +10,7 @@ import {
   type ToolCallDeps,
   type ToolStop,
 } from "./loop-state";
+import { isRejectedProposal, MAX_REJECTED_REVISIONS } from "./revision";
 import { observeError, observeResult, type ToolErrorObservation } from "./observation";
 import { executeTool } from "./tool-executor";
 
@@ -96,6 +97,12 @@ export async function* handleToolCall(
     }
 
     state.citations = updated;
+    if (isRejectedProposal(call.name, result.content)) {
+      state.rejectedRevisions += 1;
+      if (state.rejectedRevisions >= MAX_REJECTED_REVISIONS) {
+        return { outcome: "incomplete", reason: "revision_rejected" };
+      }
+    }
     return null;
   } catch (error) {
     const observation = observeError(error);

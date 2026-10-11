@@ -19,6 +19,7 @@ export interface ToolExecutionContext {
   readonly allowedWikipediaPages: Set<string>
   readonly permissions: () => PermissionContext
   readonly onResearchQuery: (query: string, language: "ko" | "en") => void
+  readonly countResultTokens?: (content: string) => number
 }
 
 export interface ToolDefinition<Input = unknown, Output = unknown> {

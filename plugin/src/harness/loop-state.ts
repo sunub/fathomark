@@ -20,6 +20,7 @@ export interface LoopState {
   readonly counts: Map<string, number>;
   totalCalls: number;
   repairRounds: number;
+  rejectedRevisions: number;
   readonly allowedWikipediaPages: Set<string>;
 }
 
@@ -31,7 +32,7 @@ export interface ToolCallDeps {
   readonly signal: AbortSignal;
 }
 
-export type ToolStopReason = "tool_limit" | "tool_error";
+export type ToolStopReason = "tool_limit" | "tool_error" | "revision_rejected";
 
 /** Why the tool phase ended the whole run. */
 export interface ToolStop {

@@ -10,6 +10,8 @@ export interface EditorTarget {
   readonly selection: string
   readonly from: EditorPosition
   readonly to: EditorPosition
+  /** Automatic range changes preserve the selection/cursor captured at request time. */
+  readonly selectionGuard?: { readonly selection: string; readonly from: EditorPosition; readonly to: EditorPosition }
 }
 
 export interface InsertionPreview {

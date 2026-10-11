@@ -4,7 +4,7 @@ import { type SemanticBackend, searchHybrid } from "./hybrid-search"
 import { DEFAULT_EXPERIENCE_RULE, type ExperienceRule } from "./note-kind"
 import type { ToolRegistry } from "./registry"
 import type { VaultReader } from "./vault-search"
-import { type VaultToolOutput, vaultOutputShape } from "./vault-output"
+import { boundVaultOutput, type VaultToolOutput, vaultOutputShape } from "./vault-output"
 
 const searchInput = z
   .object({ query: z.string().trim().min(1).max(200), limit: z.number().int().min(1).max(10).default(5) })
@@ -52,7 +52,12 @@ export function registerSearchVault(
     timeoutMs: 10_000,
     resultBudgetTokens: 1_400,
     provenance: (output) => output.references,
-    run: async ({ query, limit }, context) =>
-      searchHybrid(vault, query, limit ?? 5, context.signal, experienceRule(), semantic()),
+    run: async ({ query, limit }, context) => {
+      const output = await searchHybrid(vault, query, limit ?? 5, context.signal, experienceRule(), semantic())
+      const bounded = boundVaultOutput(output, context.countResultTokens)
+      return output.references.length && !bounded.references.length
+        ? { ...bounded, supported: false, reason: "below_threshold" as const }
+        : bounded
+    },
   })
 }

@@ -116,7 +116,9 @@ function composeRequest(
     const location =
       reference.kind === "vault"
         ? `${reference.path}${reference.heading ? `#${reference.heading}` : ""}`
-        : `${reference.title} ${reference.url}`
+        : reference.kind === "external"
+          ? `${reference.title} ${reference.url}`
+          : reference.kind === "public" ? reference.title : `User answer ${reference.answerId}`
     sections.push(
       JSON.stringify({
         section: "evidence",

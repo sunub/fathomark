@@ -108,6 +108,7 @@ function createLoopState(input: RunInput): LoopState {
     counts: new Map(),
     totalCalls: 0,
     repairRounds: 0,
+    rejectedRevisions: 0,
     allowedWikipediaPages: new Set(),
   };
 }

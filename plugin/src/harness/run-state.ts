@@ -14,6 +14,7 @@
 export type ActiveRunState =
   | "preparing_context"
   | "waiting_for_model"
+  | "waiting_for_user"
   | "streaming"
   | "waiting_for_tool_approval"
   | "executing_tool"
@@ -49,9 +50,12 @@ export function sendSlot(state: RunState): "send" | "stop" {
 
 const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   idle: ["preparing_context"],
-  preparing_context: ["waiting_for_model", "cancelled", "failed"],
-  waiting_for_model: ["streaming", "waiting_for_tool_approval", "cancelled", "failed"],
+  preparing_context: ["waiting_for_model", "waiting_for_user", "preparing_answer", "cancelled", "failed"],
+  waiting_for_model: ["streaming", "waiting_for_user", "preparing_answer", "waiting_for_tool_approval", "cancelled", "failed"],
+  waiting_for_user: ["waiting_for_model", "preparing_answer", "cancelled", "failed"],
   streaming: [
+    "waiting_for_user",
+    "waiting_for_model",
     "waiting_for_tool_approval",
     "executing_tool",
     "preparing_answer",
@@ -59,7 +63,7 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
     "failed",
   ],
   waiting_for_tool_approval: ["executing_tool", "preparing_answer", "cancelled", "failed"],
-  executing_tool: ["waiting_for_model", "preparing_answer", "cancelled", "failed"],
+  executing_tool: ["waiting_for_model", "waiting_for_user", "preparing_answer", "cancelled", "failed"],
   preparing_answer: ["complete", "incomplete", "cancelled", "failed"],
   // Every terminal state goes back to a new run, and nowhere else.
   complete: ["preparing_context"],

@@ -1,4 +1,3 @@
-import { VERIFIED_BUDGET_PROFILES } from "../context/tokenizer-profiles"
 import { decodeNdjson } from "./ndjson"
 import type {
   ModelEvent,
@@ -81,17 +80,12 @@ export function createOllamaProvider(
         const contextLength = readContextLength(asObject(show.model_info))
         const supportsTools = capabilities.includes("tools") || capabilities.includes("tool_calling")
         const hasTemplate = typeof show.template === "string" && show.template.length > 0
-        const hasVerifiedBudget = VERIFIED_BUDGET_PROFILES.length > 0
-        const usable = supportsTools && contextLength !== null && hasTemplate && hasVerifiedBudget
+        const usable = contextLength !== null && hasTemplate
         const reason = usable
           ? undefined
-          : !supportsTools
-            ? "The model does not advertise native tool calling."
-            : contextLength === null
-              ? "The model does not advertise a context length."
-              : !hasTemplate
-                ? "The model does not expose its chat template."
-                : "No verified tokenizer budget profile matches this installation."
+          : contextLength === null
+            ? "The model does not advertise a context length."
+            : "The model does not expose its chat template."
         result.push({ id, label: id, supportsTools, contextLength, usable, ...(reason ? { reason } : {}) })
       }
       return result
@@ -211,7 +205,8 @@ function readContextLength(info: JsonObject): number | null {
 }
 
 function normalizeDoneReason(reason: string | null): "stop" | "length" {
-  return reason === "length" ? "length" : "stop"
+  if (reason === "length" || reason === "stop") return reason
+  throw new Error(`Unknown Ollama completion reason: ${reason ?? "missing"}`)
 }
 
 function usageFromChunk(chunk: JsonObject):

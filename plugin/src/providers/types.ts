@@ -60,7 +60,7 @@ export type ModelEvent =
 
 export interface TokenEstimate {
   readonly promptTokens: number
-  readonly method: "exact" | "verified_upper_bound"
+  readonly method: "exact" | "verified_upper_bound" | "estimate"
 }
 
 export interface RequestCounter {

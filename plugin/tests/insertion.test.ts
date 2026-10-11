@@ -29,6 +29,15 @@ function fixture(overrides: Record<string, unknown> = {}) {
 }
 
 describe("insertion preview controller", () => {
+  it("applies a trusted automatic range while checking the originally captured cursor", () => {
+    const cursor = { line: 0, ch: 0 };
+    const { replaceRange, view } = fixture({ getSelection: () => "", listSelections: () => [{ anchor: cursor, head: cursor }] });
+    const automatic = { ...target, selectionGuard: { selection: "", from: cursor, to: cursor } };
+    const controller = new PreviewController({ viewFor: () => view } as never);
+    const preview = controller.create(automatic, "replacement");
+    expect(controller.approve(preview.id).ok).toBe(true);
+    expect(replaceRange).toHaveBeenCalledWith("replacement", target.from, target.to);
+  });
   it("writes nothing before approval, after discard, or for an unknown id", () => {
     const { replaceRange, view } = fixture()
     const controller = new PreviewController({ viewFor: () => view } as never)

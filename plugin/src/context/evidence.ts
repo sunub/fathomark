@@ -33,7 +33,25 @@ export interface ExternalEvidenceReference {
   readonly language?: "ko" | "en"
 }
 
-export type EvidenceReference = VaultEvidenceReference | ExternalEvidenceReference
+export interface UserEvidenceReference {
+  readonly kind: "user"
+  readonly runId: string
+  readonly questionId: string
+  readonly answerId: string
+  readonly excerpt: string
+}
+
+export interface PublicEvidenceReference {
+  readonly kind: "public"
+  readonly sourceId: string
+  readonly title: string
+  readonly collectedAt: string
+  readonly excerpt: string
+  readonly extraction?: "complete" | "partial"
+  readonly omitted?: readonly string[]
+}
+
+export type EvidenceReference = VaultEvidenceReference | ExternalEvidenceReference | UserEvidenceReference | PublicEvidenceReference
 
 export interface CitedEvidence {
   readonly sourceId: string
@@ -46,9 +64,12 @@ export interface CitedEvidence {
  * must collapse even when their excerpts differ.
  */
 export function referenceKey(reference: EvidenceReference): string {
-  return reference.kind === "vault"
-    ? `vault:${reference.path}#${reference.heading ?? ""}`
-    : `external:${reference.source}:${reference.url}`
+  switch (reference.kind) {
+    case "vault": return `vault:${reference.path}#${reference.heading ?? ""}`
+    case "external": return `external:${reference.source}:${reference.url}`
+    case "user": return `user:${reference.runId}:${reference.answerId}`
+    case "public": return `public:${reference.sourceId}:${reference.collectedAt}`
+  }
 }
 
 export function dedupe(references: readonly EvidenceReference[]): EvidenceReference[] {
@@ -66,18 +87,19 @@ export function registerEvidence(
   incoming: readonly EvidenceReference[]
 ): CitedEvidence[] {
   const registered = [...existing]
-  const byKey = new Map(registered.map((item) => [referenceKey(item.reference), item]))
+  const key = (reference: EvidenceReference) => referenceKey(reference) + (reference.kind === "vault" ? `:${reference.excerpt}` : "")
+  const byKey = new Map(registered.map((item) => [key(item.reference), item]))
   let next = registered.reduce((highest, item) => {
     const match = /^S(\d+)$/.exec(item.sourceId)
     return match ? Math.max(highest, Number(match[1])) : highest
   }, 0) + 1
 
   for (const reference of incoming) {
-    const key = referenceKey(reference)
-    if (byKey.has(key)) continue
+    const identity = key(reference)
+    if (byKey.has(identity)) continue
     const item = { sourceId: `S${next++}`, reference }
     registered.push(item)
-    byKey.set(key, item)
+    byKey.set(identity, item)
   }
   return registered
 }

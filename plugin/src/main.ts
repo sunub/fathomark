@@ -8,9 +8,11 @@ import { EditorAdapter } from "./obsidian/editor-adapter";
 import { EditorTargetTracker } from "./obsidian/editor-target";
 import { PreviewController } from "./obsidian/insertion-preview";
 import { VaultAdapter } from "./obsidian/vault-adapter";
-import { FakeModelProvider, fakeRequestCounter } from "./providers/fake";
+import { createOllamaProvider } from "./providers/ollama";
+import { createLocalCounter } from "./context/local-counter";
+import { pastedSourceReader } from "./workflow/public-sources";
 import { DEFAULT_SETTINGS, type FathomarkSettings, parseSettings } from "./settings";
-import { ToolRegistry } from "./tools/registry";
+import { createToolRegistry } from "./tools/create-registry";
 import { CHAT_VIEW_TYPE, ChatView } from "./view/chat-view";
 import { FathomarkSettingTab } from "./view/settings-tab";
 
@@ -37,21 +39,25 @@ export default class FathomarkPlugin extends Plugin {
     this.tracker = new EditorTargetTracker(this.app);
     this.previewController = new PreviewController(this.tracker);
     const editor = new EditorAdapter(this.app, this.tracker);
-    const tools = new ToolRegistry();
+    const tools = createToolRegistry({
+      vault,
+      experienceFolder: () => this.settings.experienceFolder,
+      includeQuestions: true,
+    });
 
-    /*
-     * The fake provider, until ROADMAP open decision 4 picks between Ollama
-     * native and an OpenAI-compatible adapter. Phase 0 only needs a stream that
-     * can be started, watched and cancelled.
-     */
     this.harness = new AgentHarness({
-      provider: new FakeModelProvider({ chunkDelayMs: 40, firstEventDelayMs: 250 }),
+      provider: createOllamaProvider(DEFAULT_SETTINGS.providerBaseUrl),
       tools,
       limits: PROPOSED_LIMITS,
       permissions: () => ({ networkResearchEnabled: this.settings.networkResearchEnabled }),
       model: this.settings.model,
-      // Fake-provider counter only; a real provider needs a verified profile.
-      counter: fakeRequestCounter,
+      counter: createLocalCounter(),
+      resolveRuntime: input => ({
+        provider: createOllamaProvider(this.settings.providerBaseUrl),
+        model: this.settings.model,
+        counter: createLocalCounter(),
+        tools: createToolRegistry({ vault, experienceFolder: () => this.settings.experienceFolder, includeQuestions: true, publicSources: pastedSourceReader(input.pastedSource) }),
+      }),
     });
     this.session = new RunSession(this.harness);
 

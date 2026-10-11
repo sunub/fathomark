@@ -10,12 +10,18 @@
 import type { CurrentNoteContext } from "../context/packet"
 import type { EvidenceReference } from "../context/evidence"
 import type { RunState } from "./run-state"
+import type { EditorTarget } from "../context/insertion"
 
 /** Correlates everything belonging to one user request. Shown in the header. */
 export type RunId = string & { readonly __brand: "RunId" }
 
 export type RunEvent =
-  | { type: "run_started"; runId: RunId; question: string; currentNote: CurrentNoteContext | null }
+  | { type: "run_started"; runId: RunId; question: string; currentNote: CurrentNoteContext | null; model?: string }
+  | { type: "workflow_phase"; runId: RunId; phase: string }
+  | { type: "question_requested"; runId: RunId; questionId: string; question: string; options?: readonly string[] }
+  | { type: "question_answered"; runId: RunId; questionId: string; answerId: string; answer: string }
+  | { type: "verified_draft"; runId: RunId; text: string; target: EditorTarget | null; issues: readonly string[] }
+  | { type: "workflow_incomplete"; runId: RunId; message: string }
   | { type: "state"; runId: RunId; state: RunState }
   /** One chunk of assistant prose. Never carries tool activity — see below. */
   | { type: "text"; runId: RunId; delta: string }
@@ -58,6 +64,7 @@ export interface EvidenceConflictClaim {
  * usual job — see Chat/Anatomy.
  */
 export interface BudgetUsage {
+  readonly estimated?: boolean
   readonly instructions: number
   readonly vault: number
   readonly external: number

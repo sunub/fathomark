@@ -28,7 +28,7 @@ export interface FathomarkSettings {
 
 export const DEFAULT_SETTINGS: FathomarkSettings = {
   providerBaseUrl: "http://127.0.0.1:11434",
-  model: "fake",
+  model: "gemma4:e4b",
   networkResearchEnabled: false,
   selectedStyle: null,
   experienceFolder: "",
@@ -43,7 +43,7 @@ export function parseSettings(raw: unknown): FathomarkSettings {
       typeof value.providerBaseUrl === "string"
         ? value.providerBaseUrl
         : DEFAULT_SETTINGS.providerBaseUrl,
-    model: typeof value.model === "string" ? value.model : DEFAULT_SETTINGS.model,
+    model: typeof value.model === "string" && value.model.trim() && value.model !== "fake" ? value.model.trim() : DEFAULT_SETTINGS.model,
     networkResearchEnabled:
       typeof value.networkResearchEnabled === "boolean"
         ? value.networkResearchEnabled

@@ -68,12 +68,13 @@ export class PreviewController {
 
   private matches(view: MarkdownView, target: EditorTarget): boolean {
     if (view.file?.path !== target.path || view.editor.getValue() !== target.text) return false
-    if (view.editor.getSelection() !== target.selection) return false
+    const guard = target.selectionGuard ?? target
+    if (view.editor.getSelection() !== guard.selection) return false
     const range = view.editor.listSelections()[0]
-    if (!range) return samePosition(view.editor.getCursor(), target.from) && samePosition(target.from, target.to)
+    if (!range) return samePosition(view.editor.getCursor(), guard.from) && samePosition(guard.from, guard.to)
     const from = earlier(range.anchor, range.head)
     const to = later(range.anchor, range.head)
-    return samePosition(from, target.from) && samePosition(to, target.to)
+    return samePosition(from, guard.from) && samePosition(to, guard.to)
   }
 }
 

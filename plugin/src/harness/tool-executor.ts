@@ -13,6 +13,7 @@ export type ToolExecutionErrorCode =
   | "invalid_input"
   | "invalid_output"
   | "timeout"
+  | "result_budget"
 
 export class ToolExecutionError extends Error {
   constructor(readonly code: ToolExecutionErrorCode, message: string) {
@@ -60,8 +61,12 @@ export async function executeTool(
     if (!parsed.success) {
       throw new ToolExecutionError("invalid_output", `Invalid ${tool.name} output: ${parsed.error.message}`)
     }
+    const content = JSON.stringify(parsed.data)
+    if (context.countResultTokens && context.countResultTokens(content) > tool.resultBudgetTokens) {
+      throw new ToolExecutionError("result_budget", `${tool.name} result exceeds its ${tool.resultBudgetTokens} token estimate budget.`)
+    }
     return {
-      content: JSON.stringify(parsed.data),
+      content,
       references: tool.provenance(parsed.data),
     }
   } catch (error) {

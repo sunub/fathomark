@@ -77,7 +77,7 @@ describe("NDJSON decoding", () => {
 })
 
 describe("Ollama provider", () => {
-  it("keeps models unusable until native tools, context, template, and budget are proven", async () => {
+  it("allows fixed-step calls with context and template, reporting native tool support separately", async () => {
     const fetchImpl = vi.fn(async (url: URL | RequestInfo) => {
       const path = new URL(String(url)).pathname
       if (path === "/api/tags") {
@@ -100,8 +100,7 @@ describe("Ollama provider", () => {
         label: "qwen3",
         supportsTools: true,
         contextLength: 8_192,
-        usable: false,
-        reason: "No verified tokenizer budget profile matches this installation.",
+        usable: true,
       },
     ])
   })
@@ -256,4 +255,19 @@ describe("local provider URL", () => {
   ])("rejects unsafe provider URL %s", (value) => {
     expect(() => validateLocalProviderUrl(value)).toThrow()
   })
+})
+
+it("allows a non-tool model for fixed steps without pretending it supports tools", async () => {
+  const fetchImpl = vi.fn(async (url: URL | RequestInfo) => new URL(String(url)).pathname === "/api/tags"
+    ? Response.json({ models: [{ name: "writer" }] })
+    : Response.json({ capabilities: ["completion"], template: "{{ .Messages }}", model_info: { "writer.context_length": 8192 } })) as unknown as typeof fetch
+  expect(await createOllamaProvider("http://localhost:11434", fetchImpl).listModels(new AbortController().signal)).toEqual([
+    { id: "writer", label: "writer", supportsTools: false, contextLength: 8192, usable: true },
+  ])
+})
+
+it("does not convert an unknown Ollama finish reason into a verified stop", async () => {
+  const fetchImpl = vi.fn(async () => response([{ message: { content: "{}" }, done: true, done_reason: "unexpected" }])) as unknown as typeof fetch
+  const collect = async () => { for await (const _event of createOllamaProvider("http://localhost:11434", fetchImpl).stream(request, new AbortController().signal)) { /* consume */ } }
+  await expect(collect()).rejects.toThrow(/completion reason/)
 })

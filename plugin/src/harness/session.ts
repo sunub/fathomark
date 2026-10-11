@@ -13,6 +13,7 @@ export class RunSession {
   private readonly unsubscribeHarness: () => void
   private disposed = false
   private request: { input: RunInput; target: EditorTarget | null } | null = null
+  private verified: Extract<RunEvent, { type: "verified_draft" }> | null = null
 
   constructor(harness: AgentHarness) {
     this.snapshot = { version: 0, state: harness.currentState(), events: [], draft: "" }
@@ -21,6 +22,10 @@ export class RunSession {
 
   getSnapshot(): RunSnapshot {
     return this.snapshot
+  }
+
+  getVerifiedDraft(): Extract<RunEvent, { type: "verified_draft" }> | null {
+    return this.snapshot.state === "complete" ? this.verified : null
   }
 
   subscribe(listener: () => void): () => void {
@@ -56,6 +61,8 @@ export class RunSession {
 
   private receive(event: RunEvent): void {
     if (this.disposed) return
+    if (event.type === "run_started") this.verified = null
+    if (event.type === "verified_draft") this.verified = event
 
     let events = event.type === "run_started" ? [event] : [...this.snapshot.events, event]
     const previous = events.at(-2)
