@@ -9,16 +9,13 @@ import {
   type ToolCallDeps,
   type ToolStop,
 } from "./loop-state";
-import { executeTool, ToolExecutionError } from "./tool-executor";
-
-function isInvalidInput(error: unknown): boolean {
-  return error instanceof ToolExecutionError && error.code === "invalid_input";
-}
+import { observeError, observeResult, type ToolErrorObservation } from "./observation";
+import { executeTool } from "./tool-executor";
 
 /** Reads state only; the caller records an invalid input before asking. */
-function endsRunAfterToolError(error: unknown, state: LoopState): boolean {
-  if (isInvalidInput(error)) return state.repairRounds > 1;
-  return !(error instanceof ToolExecutionError && error.code === "permission_denied");
+function endsRunAfterToolError(error: ToolErrorObservation, state: LoopState): boolean {
+  if (error.code === "invalid_input") return state.repairRounds > 1;
+  return error.code !== "permission_denied";
 }
 
 export async function* handleToolCall(
@@ -61,13 +58,14 @@ export async function* handleToolCall(
       yield { type: "research_query", runId, query: query.query, language: query.language };
     }
 
-    state.completedCalls.set(call.callId, result.content);
-    state.history.push({ role: "tool", callId: call.callId, content: result.content });
+    const observation = observeResult(deps.tools.get(call.name)?.capability, result);
+    state.completedCalls.set(call.callId, observation.content);
+    state.history.push({ role: "tool", callId: call.callId, content: observation.content });
     yield {
       type: "tool_result",
       runId,
       callId: call.callId,
-      summary: result.content,
+      summary: observation.content,
       truncated: false,
     };
 
@@ -79,15 +77,11 @@ export async function* handleToolCall(
     state.citations = updated;
     return null;
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    state.history.push({
-      role: "tool",
-      callId: call.callId,
-      content: JSON.stringify({ error: reason }),
-    });
+    const observation = observeError(error);
+    state.history.push({ role: "tool", callId: call.callId, content: observation.content });
 
-    yield { type: "tool_failed", runId, callId: call.callId, reason };
-    if (isInvalidInput(error)) state.repairRounds += 1;
-    return endsRunAfterToolError(error, state) ? { outcome: "failed", reason: "tool_error" } : null;
+    yield { type: "tool_failed", runId, callId: call.callId, reason: observation.message };
+    if (observation.code === "invalid_input") state.repairRounds += 1;
+    return endsRunAfterToolError(observation, state) ? { outcome: "failed", reason: "tool_error" } : null;
   }
 }
