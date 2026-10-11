@@ -5,7 +5,7 @@ import type { ToolRegistry } from "./registry"
 import { type VaultReader, excerptForHeading } from "./vault-search"
 import { vaultOutputSchema } from "./vault-output"
 
-const safeMarkdownPath = z
+export const safeMarkdownPath = z
   .string()
   .min(1)
   .refine((path) => !path.startsWith("/") && !/^[A-Za-z]:[\\/]/.test(path), "Absolute paths are not allowed.")
