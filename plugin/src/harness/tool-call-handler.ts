@@ -5,6 +5,7 @@ import type { RunEvent, RunId } from "./events";
 import {
   MAX_CALLS_PER_TOOL,
   MAX_CALLS_TOTAL,
+  MAX_TOOL_RETRIES,
   type LoopState,
   type ToolCallDeps,
   type ToolStop,
@@ -16,6 +17,24 @@ import { executeTool } from "./tool-executor";
 function endsRunAfterToolError(error: ToolErrorObservation, state: LoopState): boolean {
   if (error.code === "invalid_input") return state.repairRounds > 1;
   return error.code !== "permission_denied";
+}
+
+/** A timeout is the one failure worth repeating; a repeat that is cancelled is not. */
+async function executeWithRetry(
+  call: ModelToolCall,
+  deps: ToolCallDeps,
+  context: ToolExecutionContext,
+  beforeRetry: () => void,
+): ReturnType<typeof executeTool> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await executeTool(call, deps.tools, deps.permissions, context, deps.stage);
+    } catch (error) {
+      const retryable = observeError(error).code === "timeout";
+      if (!retryable || attempt >= MAX_TOOL_RETRIES || deps.signal.aborted) throw error;
+      beforeRetry();
+    }
+  }
 }
 
 export async function* handleToolCall(
@@ -53,7 +72,9 @@ export async function* handleToolCall(
   };
 
   try {
-    const result = await executeTool(call, deps.tools, deps.permissions, context, deps.stage);
+    const result = await executeWithRetry(call, deps, context, () => {
+      researchQueries.length = 0;
+    });
     for (const query of researchQueries) {
       yield { type: "research_query", runId, query: query.query, language: query.language };
     }

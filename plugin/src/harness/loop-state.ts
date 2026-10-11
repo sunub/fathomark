@@ -8,6 +8,8 @@ import type { RunStage } from "./stage";
 export const MAX_MODEL_ROUNDS = 8;
 export const MAX_CALLS_TOTAL = 12;
 export const MAX_CALLS_PER_TOOL = 5;
+/** Extra attempts for a call that timed out; other failures are not retried. */
+export const MAX_TOOL_RETRIES = 1;
 
 /** What the agent loop remembers for the length of one run. */
 export interface LoopState {
