@@ -18,7 +18,7 @@ describe("structured model calls", () => {
     const beforeRequest = vi.fn(async () => {})
     expect(await callStructured(model, request, schema, signal(), { beforeRequest })).toEqual({ ok: true, value: { text: "ok" }, usage: { promptTokens: 8, outputTokens: 4 } })
     expect(beforeRequest).toHaveBeenCalledTimes(2)
-    expect(model.stream).toHaveBeenCalledWith(expect.objectContaining({ tools: [] }), expect.any(AbortSignal))
+    expect(model.stream).toHaveBeenCalledWith(expect.objectContaining({ tools: [], responseSchema: z.toJSONSchema(schema), thinking: false }), expect.any(AbortSignal))
   })
   it("repairs at most once", async () => {
     const model = provider([[{ type: "text", delta: "{}" }, done], [{ type: "text", delta: "{}" }, done]])

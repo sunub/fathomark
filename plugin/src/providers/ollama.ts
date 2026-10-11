@@ -108,6 +108,8 @@ export function createOllamaProvider(
                 parameters: tool.parameters,
               },
             })),
+            ...(modelRequest.responseSchema ? { format: modelRequest.responseSchema } : {}),
+            ...(modelRequest.thinking !== undefined ? { think: modelRequest.thinking } : {}),
             stream: true,
             options: {
               num_ctx: modelRequest.contextWindow,

@@ -22,6 +22,10 @@ export interface ModelRequest {
   readonly tools: readonly ModelToolSchema[]
   readonly maxOutputTokens: number
   readonly contextWindow: number
+  /** JSON Schema the provider constrains output to. Only set by tool-free structured calls. */
+  readonly responseSchema?: Record<string, unknown>
+  /** false skips hidden reasoning, which otherwise spends maxOutputTokens unseen. Omitted = model default. */
+  readonly thinking?: boolean
 }
 
 export type ModelMessage =

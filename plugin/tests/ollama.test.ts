@@ -271,3 +271,30 @@ it("does not convert an unknown Ollama finish reason into a verified stop", asyn
   const collect = async () => { for await (const _event of createOllamaProvider("http://localhost:11434", fetchImpl).stream(request, new AbortController().signal)) { /* consume */ } }
   await expect(collect()).rejects.toThrow(/completion reason/)
 })
+
+it("sends a response schema as Ollama format only when requested", async () => {
+  const bodies: unknown[] = []
+  const fetchImpl = vi.fn(async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)))
+    return response([{ message: { content: "{}" }, done: true, done_reason: "stop" }])
+  }) as unknown as typeof fetch
+  const provider = createOllamaProvider("http://127.0.0.1:11434", fetchImpl)
+  const schema = { type: "object", properties: { text: { type: "string" } } }
+  for await (const _event of provider.stream({ ...request, responseSchema: schema }, new AbortController().signal)) { /* consume */ }
+  for await (const _event of provider.stream(request, new AbortController().signal)) { /* consume */ }
+  expect(bodies[0]).toMatchObject({ format: schema })
+  expect(bodies[1]).not.toHaveProperty("format")
+})
+
+it("sends Ollama think only when the request sets thinking", async () => {
+  const bodies: unknown[] = []
+  const fetchImpl = vi.fn(async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)))
+    return response([{ message: { content: "ok" }, done: true, done_reason: "stop" }])
+  }) as unknown as typeof fetch
+  const provider = createOllamaProvider("http://127.0.0.1:11434", fetchImpl)
+  for await (const _event of provider.stream({ ...request, thinking: false }, new AbortController().signal)) { /* consume */ }
+  for await (const _event of provider.stream(request, new AbortController().signal)) { /* consume */ }
+  expect(bodies[0]).toMatchObject({ think: false })
+  expect(bodies[1]).not.toHaveProperty("think")
+})

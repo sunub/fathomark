@@ -22,11 +22,16 @@ export async function callStructured<T>(
   options: StructuredOptions = {},
 ): Promise<StructuredResult<T>> {
   signal.throwIfAborted()
+  // The provider constrains the shape; the prompt still explains it and safeParse stays the final check.
+  const jsonSchema = z.toJSONSchema(schema) as Record<string, unknown>
   let current: ModelRequest = {
     ...request,
     tools: [],
+    responseSchema: jsonSchema,
+    // Measured on gemma4:e4b: hidden reasoning took most of the output limit without better verdicts.
+    thinking: false,
     messages: [
-      { role: "system", content: `Return only JSON matching this schema, without Markdown fences: ${JSON.stringify(z.toJSONSchema(schema))}` },
+      { role: "system", content: `Return only JSON matching this schema, without Markdown fences: ${JSON.stringify(jsonSchema)}` },
       ...request.messages,
     ],
   }
