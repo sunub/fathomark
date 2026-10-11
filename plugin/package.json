@@ -14,10 +14,11 @@
   },
   "dependencies": {
     "@fathomark/design-system": "workspace:*",
+    "@openai/agents": "^0.18.0",
     "lucide-react": "^1.47.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zod": "^3.24.0"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.0.0",
