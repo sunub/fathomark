@@ -43,3 +43,24 @@ describe("career claims", () => {
     expect(result.text).toBe("")
   })
 })
+
+describe("career claim dates and counters", () => {
+  const dated = (excerpt: string): CitedEvidence[] => [{ sourceId: "S1", reference: { kind: "vault", path: "a.md", excerpt } }]
+  const issues = (excerpt: string, text: string) => verifyClaims(draft(text), dated(excerpt)).issues
+
+  it("accepts a year and month written out from an ISO-style date", () => {
+    expect(issues("2024-03, 캐시를 도입했다.", "2024년 3월에 캐시를 도입했습니다.")).toEqual([])
+    expect(issues("2024-01부터 6개월간 리드를 맡았다.", "2024년 1월부터 6개월간 리드를 맡았습니다.")).toEqual([])
+  })
+
+  it("still rejects a different year, month or a duration hidden in a date", () => {
+    expect(issues("2024-03, 캐시를 도입했다.", "2023년에 캐시를 도입했습니다.")).toEqual(["claim 1: literal_mismatch 2023년"])
+    expect(issues("2024-03, 캐시를 도입했다.", "2024년 4월에 캐시를 도입했습니다.")).toEqual(["claim 1: literal_mismatch 4월"])
+    expect(issues("2024-03, 캐시를 도입했다.", "3년간 캐시를 운영했습니다.")).toEqual(["claim 1: literal_mismatch 3년"])
+  })
+
+  it("treats 인 and 명 as the same headcount", () => {
+    expect(issues("4명 팀의 리드를 맡았다.", "4인 팀을 이끌었습니다.")).toEqual([])
+    expect(issues("4명 팀의 리드를 맡았다.", "5인 팀을 이끌었습니다.")).toEqual(["claim 1: literal_mismatch 5명"])
+  })
+})

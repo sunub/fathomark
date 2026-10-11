@@ -19,8 +19,13 @@ export interface ClaimVerification {
 }
 
 function numbers(text: string): string[] {
-  return (text.match(/\d+(?:[.,]\d+)*(?:\s?(?:%|퍼센트|ms|초|명|개|배|원|년|월|일))?/g) ?? [])
-    .map((value) => value.replace(/\s/g, "").replace(/퍼센트$/, "%"))
+  return (text.match(/\d+(?:[.,]\d+)*(?:\s?(?:%|퍼센트|ms|초|명|인|개|배|원|년|월|일))?/g) ?? [])
+    .map((value) => value.replace(/\s/g, "").replace(/퍼센트$/, "%").replace(/인$/, "명"))
+}
+
+/** The year and month an ISO-style date such as 2024-03 states, in the 2024년 and 3월 forms a draft uses. */
+function datedValues(text: string): string[] {
+  return [...text.matchAll(/(?<!\d)(\d{4})[-./](\d{1,2})(?!\d)/g)].flatMap((match) => [`${match[1]}년`, `${Number(match[2])}월`])
 }
 
 /** Literal checks only; the workflow must also verify role/outcome meaning. */
@@ -48,7 +53,7 @@ export function verifyClaims(
       }
     }
     const citedText = excerpts.join("\n")
-    const supportedNumbers = new Set(numbers(citedText))
+    const supportedNumbers = new Set([...numbers(citedText), ...datedValues(citedText)])
     for (const value of numbers(claim.text)) {
       if (!supportedNumbers.has(value)) issues.push(`${label}: literal_mismatch ${value}`)
     }
