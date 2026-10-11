@@ -114,6 +114,8 @@ export function createOllamaProvider(
             options: {
               num_ctx: modelRequest.contextWindow,
               num_predict: modelRequest.maxOutputTokens,
+              ...(modelRequest.sampling ? { temperature: modelRequest.sampling.temperature } : {}),
+              ...(modelRequest.sampling?.seed !== undefined ? { seed: modelRequest.sampling.seed } : {}),
             },
             keep_alive: "5m",
           }),

@@ -286,6 +286,19 @@ it("sends a response schema as Ollama format only when requested", async () => {
   expect(bodies[1]).not.toHaveProperty("format")
 })
 
+it("sends fixed sampling options only when requested", async () => {
+  const bodies: Array<{ options: Record<string, unknown> }> = []
+  const fetchImpl = vi.fn(async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)))
+    return response([{ message: { content: "ok" }, done: true, done_reason: "stop" }])
+  }) as unknown as typeof fetch
+  const provider = createOllamaProvider("http://127.0.0.1:11434", fetchImpl)
+  for await (const _event of provider.stream({ ...request, sampling: { temperature: 0, seed: 7 } }, new AbortController().signal)) { /* consume */ }
+  for await (const _event of provider.stream(request, new AbortController().signal)) { /* consume */ }
+  expect(bodies[0]!.options).toEqual({ num_ctx: 4_096, num_predict: 128, temperature: 0, seed: 7 })
+  expect(bodies[1]!.options).toEqual({ num_ctx: 4_096, num_predict: 128 })
+})
+
 it("sends Ollama think only when the request sets thinking", async () => {
   const bodies: unknown[] = []
   const fetchImpl = vi.fn(async (_url, init) => {

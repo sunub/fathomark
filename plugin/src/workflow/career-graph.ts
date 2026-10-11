@@ -29,6 +29,8 @@ export interface WorkflowDeps {
   readonly waitForUser: (question: UserQuestion) => Promise<UserReply>;
   readonly reportBudget?: (promptTokens: number, estimated: boolean) => void;
   readonly reportUsage?: (tokens: number) => void;
+  /** Set only by evaluation runs; the app keeps the provider's default sampling. */
+  readonly sampling?: ModelRequest["sampling"];
 }
 
 const analysisSchema = z.object({ intent: z.enum(["draft", "revise", "unclear"]), applicationQuestion: z.string().max(2000), criteria: z.string().max(200), query: z.string().trim().min(1).max(200), requiredFacts: z.array(z.string().trim().min(1).max(200)).max(10) }).strict();
@@ -54,7 +56,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
   }
 
   async function structured<T>(task: string, data: unknown, schema: ZodType<T>): Promise<T> {
-    const request: ModelRequest = { model: deps.model, messages: [{ role: "system", content: SYSTEM + "\n" + task }, { role: "user", content: JSON.stringify(data) }], tools: [], maxOutputTokens: deps.limits.outputReserve, contextWindow: deps.limits.modelContext };
+    const request: ModelRequest = { model: deps.model, messages: [{ role: "system", content: SYSTEM + "\n" + task }, { role: "user", content: JSON.stringify(data) }], tools: [], maxOutputTokens: deps.limits.outputReserve, contextWindow: deps.limits.modelContext, ...(deps.sampling ? { sampling: deps.sampling } : {}) };
     const result = await callStructured(deps.provider, request, schema, signal, { beforeRequest });
     signal.throwIfAborted();
     if (!result.ok) throw new Incomplete(`모델 결과를 사용할 수 없습니다: ${result.reason}. ${result.detail}`);
@@ -178,7 +180,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
       yield* tool("search_vault", { query: analysis.query, limit: 3 }, "initial-search-1");
       for (let round = 0; canCallTools && round < CAREER_LIMITS.exploreRounds; round++) {
         const schemas = offeredTools(deps.tools, "explore", deps.permissions()).filter(t => ["search_vault", "read_note", "get_note_context", "ask_user", "read_public_source", "search_wikipedia", "read_wikipedia_page"].includes(t.name));
-        const request: ModelRequest = { model: deps.model, messages: [{ role: "system", content: SYSTEM + "\nGather only necessary personal experience evidence. Use tools if more records are needed, otherwise say exploration is finished. Pasted source ID is P1. Never draft here." }, { role: "user", content: JSON.stringify({ question: analysis.applicationQuestion, requiredFacts: analysis.requiredFacts, evidence: state.evidence, researchTopic: input.packet.researchTopic }) }, ...state.history], tools: schemas, maxOutputTokens: deps.limits.outputReserve, contextWindow: deps.limits.modelContext };
+        const request: ModelRequest = { model: deps.model, messages: [{ role: "system", content: SYSTEM + "\nGather only necessary personal experience evidence. Use tools if more records are needed, otherwise say exploration is finished. Pasted source ID is P1. Never draft here." }, { role: "user", content: JSON.stringify({ question: analysis.applicationQuestion, requiredFacts: analysis.requiredFacts, evidence: state.evidence, researchTopic: input.packet.researchTopic }) }, ...state.history], tools: schemas, maxOutputTokens: deps.limits.outputReserve, contextWindow: deps.limits.modelContext, ...(deps.sampling ? { sampling: deps.sampling } : {}) };
         await beforeRequest(request);
         const events = await collectExploration(deps.provider, request, signal);
         signal.throwIfAborted();

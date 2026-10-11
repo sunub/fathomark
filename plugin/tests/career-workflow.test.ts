@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { runCareerWorkflow } from "../src/workflow/career-graph";
 import { PROPOSED_LIMITS } from "../src/harness/budget";
 import { fakeRequestCounter } from "../src/providers/fake";
-import type { ModelProvider } from "../src/providers/types";
+import type { ModelProvider, ModelRequest } from "../src/providers/types";
 import type { RunEvent, RunId } from "../src/harness/events";
 import { createToolRegistry } from "../src/tools/create-registry";
 
@@ -45,4 +45,14 @@ describe("career workflow gates", () => {
     expect(calls).toBe(2);
     expect(events.some(e => e.type === "verified_draft")).toBe(false);
   });
+});
+
+it("forwards fixed sampling to every model request only when supplied", async () => {
+  const seen: Array<ModelRequest["sampling"]> = [];
+  const responses: unknown[] = [analysis, ready, outline, draft, supported];
+  const provider: ModelProvider = { id: "scripted", health: async () => ({ reachable: true, detail: "ok" }), listModels: async () => [], stream: async function* (request) { seen.push(request.sampling); yield { type: "text", delta: JSON.stringify(responses[seen.length - 1]) }; yield { type: "done", reason: "stop" }; } };
+  const deps = { provider, model: "test", tools: createToolRegistry({ vault: { listNotes: () => [], readNote: async () => null }, experienceFolder: () => "" }), counter: fakeRequestCounter, limits: PROPOSED_LIMITS, permissions: () => ({ networkResearchEnabled: false }), waitForUser: async () => { throw new Error("No user answer"); }, sampling: { temperature: 0, seed: 7 } };
+  for await (const _event of runCareerWorkflow("run-1" as RunId, input, deps, new AbortController().signal)) { /* consume */ }
+  expect(seen).toHaveLength(5);
+  expect(seen.every(value => value?.temperature === 0 && value.seed === 7)).toBe(true);
 });

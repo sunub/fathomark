@@ -24,6 +24,8 @@ export interface ModelRequest {
   readonly contextWindow: number
   /** JSON Schema the provider constrains output to. Only set by tool-free structured calls. */
   readonly responseSchema?: Record<string, unknown>
+  /** Fixed sampling for reproducible evaluation runs. Omitted = provider default. */
+  readonly sampling?: { readonly temperature: number; readonly seed?: number }
   /** false skips hidden reasoning, which otherwise spends maxOutputTokens unseen. Omitted = model default. */
   readonly thinking?: boolean
 }
