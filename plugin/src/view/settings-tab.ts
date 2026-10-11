@@ -22,6 +22,13 @@ export class FathomarkSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Model").setHeading()
 
     new Setting(containerEl)
+      .setName("Local model")
+      .setDesc("Ollama에 설치된 모델명을 입력하세요. 예: gemma4:e4b. 다운로드와 학습은 자동 실행하지 않습니다.")
+      .addText(text => text.setValue(this.plugin.settings.model).onChange(async value => {
+        await this.plugin.updateSettings({ model: value.trim() })
+      }))
+
+    new Setting(containerEl)
       .setName("Provider address")
       .setDesc("Where your local model provider listens. Fathomark only talks to localhost.")
       .addText((text) =>

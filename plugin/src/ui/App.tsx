@@ -1,54 +1,73 @@
-/*
- * The panel.
- *
- * Chat/Anatomy: every main screen has the same three parts in the same
- * order — header, body, bottom — and the bottom is one component with four
- * slots: the state row, the budget bar, the composer, and the model line.
- */
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import { Alert, AlertDescription, Button } from "@fathomark/design-system";
 
-import { Alert, AlertDescription, Button } from "@fathomark/design-system"
-
-import type { RunSnapshot } from "../harness/events"
-import { isActive } from "../harness/run-state"
-import { BudgetBar } from "./panel/BudgetBar"
-import { Composer } from "./panel/Composer"
-import { ContextSummary } from "./panel/ContextSummary"
-import { Header } from "./panel/Header"
-import { InsertionPreviewPanel } from "./panel/InsertionPreview"
-import { Sources } from "./panel/Sources"
-import { StylePicker } from "./panel/StylePicker"
-import { Conversation } from "./screens/Conversation"
-import { INITIAL_PANEL_STATE, type PanelCommands, reduce } from "./state/panel-store"
+import type { RunSnapshot } from "../harness/events";
+import { isActive } from "../harness/run-state";
+import { BudgetBar } from "./panel/BudgetBar";
+import { Composer } from "./panel/Composer";
+import { ContextSummary } from "./panel/ContextSummary";
+import { Header } from "./panel/Header";
+import { InsertionPreviewPanel } from "./panel/InsertionPreview";
+import { QuestionPanel } from "./panel/QuestionPanel";
+import { Sources } from "./panel/Sources";
+import { StylePicker } from "./panel/StylePicker";
+import { Conversation } from "./screens/Conversation";
+import { INITIAL_PANEL_STATE, type PanelCommands, reduce } from "./state/panel-store";
 
 export interface AppProps {
-  readonly getSnapshot: () => RunSnapshot
-  readonly subscribe: (listener: () => void) => () => void
-  readonly commands: PanelCommands
-  /** For the model status line. */
-  readonly modelLabel: string
+  readonly getSnapshot: () => RunSnapshot;
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly commands: PanelCommands;
+  readonly modelLabel: string;
 }
 
+const PHASE_LABELS: Record<string, string> = {
+  analyze: "요청 정리",
+  target: "수정할 문단 찾기",
+  readiness: "작성에 필요한 근거 확인",
+  repair: "검증 결과에 따라 초안 보완",
+  preview: "검증된 초안 확인",
+  explore: "경험 근거 찾기",
+  outline: "경험과 개요 선택",
+  draft: "초안 작성",
+  verify: "사실과 문체 확인",
+};
+
 export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) {
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const state = useMemo(
     () => snapshot.events.reduce(reduce, { ...INITIAL_PANEL_STATE, runState: snapshot.state }),
-    [snapshot]
-  )
-  const [researchTopic, setResearchTopic] = useState("")
-  const [insertionPreview, setInsertionPreview] = useState<ReturnType<PanelCommands["previewAnswer"]>>(null)
-  const [insertionHandled, setInsertionHandled] = useState(false)
-  const runId = snapshot.events.find((event) => event.type === "run_started")?.runId ?? null
+    [snapshot],
+  );
+  const [researchTopic, setResearchTopic] = useState("");
+  const [pastedSource, setPastedSource] = useState("");
+  const [insertionPreview, setInsertionPreview] =
+    useState<ReturnType<PanelCommands["previewAnswer"]>>(null);
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
+  const [insertionHandled, setInsertionHandled] = useState(false);
+  const runId = snapshot.events.find((event) => event.type === "run_started")?.runId ?? null;
 
   useEffect(() => {
-    setInsertionPreview(null)
-    setInsertionHandled(false)
-  }, [runId])
+    setInsertionPreview(null);
+    setInsertionHandled(false);
+    setPreviewNotice(null);
+  }, [runId]);
+
+  const showPreview = (recapture?: boolean) => {
+    const preview = commands.previewAnswer(recapture);
+    setInsertionPreview(preview);
+    setPreviewNotice(preview ? null : commands.previewBlockedReason());
+  };
 
   return (
     <div className="tw:flex tw:h-full tw:flex-col">
       <Header runState={state.runState} elapsedMs={state.elapsedMs} />
+      {state.phase && (
+        <p role="status" className="tw:px-3 tw:text-fm-caption">
+          {PHASE_LABELS[state.phase] ?? "작성 진행 중"}
+        </p>
+      )}
 
       <Conversation
         question={state.question}
@@ -58,6 +77,14 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
       />
 
       <ContextSummary note={state.currentNote} />
+      {state.pendingQuestion && commands.answerQuestion && (
+        <QuestionPanel
+          key={`${runId}-${state.pendingQuestion.questionId}`}
+          question={state.pendingQuestion}
+          answerQuestion={commands.answerQuestion}
+          stop={commands.stop}
+        />
+      )}
       <Sources
         answer={state.answer}
         evidence={state.evidence}
@@ -69,11 +96,30 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
         clearStyle={commands.clearStyle}
         saveStyle={commands.saveStyle}
       />
+      {state.verified && (
+        <div className="tw:px-3 tw:text-fm-caption">
+          <p>검증된 초안입니다. 적용 전에 원문과 수정 내용을 확인해주세요.</p>
+          {state.verificationIssues.map((issue, index) => (
+            <p key={`${index}-${issue}`}>{issue}</p>
+          ))}
+        </div>
+      )}
       {state.answer && !insertionPreview && !insertionHandled && (
         <div className="tw:px-3">
-          <Button size="sm" variant="outline" onClick={() => setInsertionPreview(commands.previewAnswer())}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => showPreview()}
+          >
             Preview answer insertion
           </Button>
+        </div>
+      )}
+      {previewNotice && !insertionPreview && (
+        <div className="tw:px-3">
+          <Alert>
+            <AlertDescription>{previewNotice}</AlertDescription>
+          </Alert>
         </div>
       )}
       {insertionPreview && (
@@ -81,15 +127,15 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
           preview={insertionPreview}
           busy={isActive(state.runState)}
           approve={(id) => {
-            const next = commands.approveInsertion(id)
-            setInsertionHandled(next?.status === "applied")
-            setInsertionPreview(next?.status === "applied" ? null : next)
+            const next = commands.approveInsertion(id);
+            setInsertionHandled(next?.status === "applied");
+            setInsertionPreview(next?.status === "applied" ? null : next);
           }}
           discard={(id) => {
-            commands.discardInsertion(id)
-            setInsertionPreview(null)
+            commands.discardInsertion(id);
+            setInsertionPreview(null);
           }}
-          recreate={() => setInsertionPreview(commands.previewAnswer(true))}
+          recreate={() => showPreview(true)}
         />
       )}
 
@@ -109,11 +155,24 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
 
         <Composer
           runState={state.runState}
-          onAsk={commands.ask}
+          onAsk={(question) => commands.ask(question, pastedSource.trim() || undefined)}
           onStop={commands.stop}
           draft={snapshot.draft ?? ""}
           onDraftChange={commands.setDraft}
         />
+
+        <label className="tw:flex tw:flex-col tw:gap-1 tw:text-fm-caption">
+          지원 공고 또는 문항 붙여넣기 (선택)
+          <textarea
+            aria-label="지원 공고 또는 문항 붙여넣기"
+            rows={3}
+            value={pastedSource}
+            disabled={isActive(state.runState)}
+            onChange={(event) => setPastedSource(event.target.value)}
+            className="tw:rounded-fm-control tw:border tw:border-fm-line tw:bg-transparent tw:p-2"
+          />
+          <span>회사와 지원 조건을 확인하는 참고 자료로 사용합니다.</span>
+        </label>
 
         <label className="tw:flex tw:flex-col tw:gap-1 tw:text-fm-caption tw:text-fm-text-muted">
           Public Wikipedia topic
@@ -129,9 +188,9 @@ export function App({ getSnapshot, subscribe, commands, modelLabel }: AppProps) 
 
         <div className="tw:flex tw:items-center tw:gap-1.5 tw:font-fm-mono tw:text-fm-micro tw:text-fm-text-muted">
           <span className="tw:size-1.5 tw:rounded-full tw:bg-fm-ok" aria-hidden />
-          {modelLabel}
+          {state.model ?? modelLabel}
         </div>
       </div>
     </div>
-  )
+  );
 }

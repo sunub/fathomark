@@ -28,6 +28,7 @@ export function BudgetBar({ usage }: { usage: BudgetUsage }) {
   return (
     <div className="tw:flex tw:items-center tw:gap-2 tw:font-fm-mono tw:text-fm-micro tw:text-fm-text-muted">
       <span>
+        {usage.estimated && "입력 추정 "}
         {thousands(used)} / {thousands(usage.total)}
       </span>
       <span className="tw:flex tw:h-1 tw:flex-1 tw:overflow-hidden tw:rounded-xs tw:bg-fm-line">

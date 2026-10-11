@@ -16,6 +16,7 @@ import { isTerminal } from "../../harness/run-state"
 const BADGES: Partial<Record<RunState, { label: string; className: string }>> = {
   preparing_context: { label: "CONTEXT", className: "tw:text-fm-brand-text tw:bg-fm-brand-tint tw:border-fm-brand-line" },
   waiting_for_model: { label: "WAITING", className: "tw:text-fm-brand-text tw:bg-fm-brand-tint tw:border-fm-brand-line" },
+  waiting_for_user: { label: "답변 대기", className: "tw:text-fm-pending-text tw:bg-fm-pending-tint tw:border-fm-pending-line" },
   streaming: { label: "STREAMING", className: "tw:text-fm-brand-text tw:bg-fm-brand-tint tw:border-fm-brand-line" },
   waiting_for_tool_approval: { label: "APPROVE", className: "tw:text-fm-pending-text tw:bg-fm-pending-tint tw:border-fm-pending-line" },
   executing_tool: { label: "TOOL", className: "tw:text-fm-vault tw:bg-fm-vault-tint tw:border-fm-vault-line" },

@@ -20,6 +20,12 @@ export interface ToolActivity {
   readonly detail: string
 }
 
+export interface PendingQuestion {
+  readonly questionId: string
+  readonly question: string
+  readonly options?: readonly string[]
+}
+
 export interface PanelState {
   readonly runState: RunState
   readonly answer: string
@@ -32,6 +38,11 @@ export interface PanelState {
   readonly currentNote: CurrentNoteContext | null
   readonly evidence: ReadonlyMap<string, EvidenceReference>
   readonly conflicts: readonly EvidenceConflictClaim[]
+  readonly pendingQuestion: PendingQuestion | null
+  readonly phase: string | null
+  readonly verified: boolean
+  readonly verificationIssues: readonly string[]
+  readonly model: string | null
 }
 
 export const INITIAL_PANEL_STATE: PanelState = {
@@ -45,11 +56,17 @@ export const INITIAL_PANEL_STATE: PanelState = {
   currentNote: null,
   evidence: new Map(),
   conflicts: [],
+  pendingQuestion: null,
+  phase: null,
+  verified: false,
+  verificationIssues: [],
+  model: null,
 }
 
 /** What the composer can do. Both are always available — see sendSlot(). */
 export interface PanelCommands {
-  ask(question: string): Promise<{ accepted: boolean; reason?: string }>
+  ask(question: string, pastedSource?: string): Promise<{ accepted: boolean; reason?: string }>
+  answerQuestion?(questionId: string, answer: string): { accepted: boolean; reason?: string }
   stop(): void
   retry(): Promise<{ accepted: boolean; reason?: string }>
   openSource(reference: EvidenceReference): Promise<void>
@@ -59,6 +76,8 @@ export interface PanelCommands {
   saveStyle(): Promise<void>
   setDraft(draft: string): void
   previewAnswer(recapture?: boolean): InsertionPreview | null
+  /** Why the last previewAnswer returned null, or null when there is nothing to explain. */
+  previewBlockedReason(): string | null
   approveInsertion(id: string): InsertionPreview | null
   discardInsertion(id: string): InsertionPreview | null
 }
@@ -70,13 +89,39 @@ export function reduce(state: PanelState, event: RunEvent): PanelState {
         ...INITIAL_PANEL_STATE,
         question: event.question,
         currentNote: event.currentNote,
+        model: event.model ?? null,
       }
 
     case "state":
-      return { ...state, runState: event.state }
+      return {
+        ...state,
+        runState: event.state,
+        pendingQuestion: event.state === "cancelled" || event.state === "failed" || event.state === "complete"
+          ? null : state.pendingQuestion,
+      }
+
+    case "workflow_phase":
+      return { ...state, phase: event.phase }
+
+    case "question_requested":
+      return { ...state, pendingQuestion: {
+        questionId: event.questionId,
+        question: event.question,
+        ...(event.options ? { options: event.options } : {}),
+      } }
+
+    case "question_answered":
+      return state.pendingQuestion?.questionId === event.questionId
+        ? { ...state, pendingQuestion: null } : state
+
+    case "verified_draft":
+      return { ...state, answer: event.text, verified: true, verificationIssues: event.issues }
+
+    case "workflow_incomplete":
+      return { ...state, answer: "", verified: false, error: event.message, pendingQuestion: null }
 
     case "text":
-      return { ...state, answer: state.answer + event.delta }
+      return state.verified ? state : { ...state, answer: state.answer + event.delta }
 
     case "tool_call":
       if (state.activity.some((item) => item.callId === event.callId)) return state

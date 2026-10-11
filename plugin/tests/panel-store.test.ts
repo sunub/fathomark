@@ -10,6 +10,49 @@ function apply(events: RunEvent[]) {
 }
 
 describe("panel store", () => {
+  it("only clears the currently pending question and resets workflow state for a new run", () => {
+    const pending = apply([
+      { type: "workflow_phase", runId, phase: "explore" },
+      { type: "question_requested", runId, questionId: "q1", question: "역할은?" },
+      { type: "question_answered", runId, questionId: "old", answerId: "a0", answer: "무시" },
+    ])
+    expect(pending.pendingQuestion?.questionId).toBe("q1")
+    const answered = reduce(pending, {
+      type: "question_answered", runId, questionId: "q1", answerId: "a1", answer: "지원",
+    })
+    expect(answered.pendingQuestion).toBeNull()
+    expect(answered.answer).toBe("")
+    const next = reduce(pending, { type: "run_started", runId, question: "새 요청", currentNote: null })
+    expect(next.pendingQuestion).toBeNull()
+    expect(next.phase).toBeNull()
+  })
+
+  it("displays the verified draft and removes an incomplete draft", () => {
+    const verified = apply([
+      { type: "verified_draft", runId, text: "확인된 글", target: null, issues: ["의미 검증도 오류 가능"] },
+      { type: "text", runId, delta: "확인된 글" },
+    ])
+    expect(verified.answer).toBe("확인된 글")
+    expect(verified.verified).toBe(true)
+    expect(verified.verificationIssues).toEqual(["의미 검증도 오류 가능"])
+    const incomplete = reduce(verified, { type: "workflow_incomplete", runId, message: "근거 부족" })
+    expect(incomplete.answer).toBe("")
+    expect(incomplete.verified).toBe(false)
+    expect(incomplete.error).toBe("근거 부족")
+  })
+
+  it("captures the run model and clears questions on cancellation", () => {
+    const cancelled = apply([
+      { type: "run_started", runId, question: "요청", currentNote: null, model: "selected-model" },
+      { type: "question_requested", runId, questionId: "q1", question: "역할은?" },
+      { type: "state", runId, state: "cancelled" },
+    ])
+    expect(cancelled.model).toBe("selected-model")
+    expect(cancelled.pendingQuestion).toBeNull()
+    const next = reduce(cancelled, { type: "run_started", runId, question: "새 요청", currentNote: null })
+    expect(next.model).toBeNull()
+  })
+
   it("keeps tool activity out of the answer prose", () => {
     // PRODUCT.md criterion 5: tool activity never becomes assistant text.
     const state = apply([
