@@ -9,7 +9,7 @@ import { createToolRegistry } from "../src/tools/create-registry";
 const target = { id: "target-1", path: "note.md", text: "I helped test.", selection: "I helped test.", from: { line: 0, ch: 0 }, to: { line: 0, ch: 14 } };
 const input = { question: "Make this shorter", mode: "career" as const, target, packet: { systemInstructions: "s", currentNote: { path: target.path, title: "Note", text: target.text, isSelection: true }, style: null, researchTopic: null, evidence: [], conversation: [], omitted: [] } };
 const analysis = { intent: "revise", applicationQuestion: "", criteria: "shorter", query: "test", requiredFacts: [] };
-const ready = { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] };
+const ready = { facts: [{ fact: "personal action", sourceId: "S1", quote: "I helped test." }], conflicts: [], ready: true };
 const outline = { sourceIds: ["S1"], outline: ["My action"] };
 const draft = { claims: [{ text: "I helped with testing.", evidence: ["S1"] }] };
 const supported = { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true };
@@ -33,7 +33,7 @@ describe("career workflow gates", () => {
 
   it("blocks an unsupported role change even with a valid source ID", async () => {
     const bad = { claims: [{ text: "I led the whole project.", evidence: ["S1"] }] };
-    const failed = { checks: [{ claim: "draft", evidence: "", differences: ["Role changed"], sameMeaning: false }], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: false };
+    const failed = { checks: [{ claim: "draft", facts: [], evidence: "", differences: ["Role changed"], sameMeaning: false }], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: false };
     const { events, calls } = await run([analysis, ready, outline, bad, failed, bad, failed]);
     expect(calls).toBe(7);
     expect(events.some(e => e.type === "verified_draft")).toBe(false);
@@ -41,7 +41,7 @@ describe("career workflow gates", () => {
   });
 
   it("never drafts when an unresolved conflict requires new facts", async () => {
-    const { events, calls } = await run([analysis, { ...ready, ready: false, missing: [], conflicts: ["Role conflicts"] }]);
+    const { events, calls } = await run([analysis, { ...ready, ready: false, conflicts: ["Role conflicts"] }]);
     expect(calls).toBe(2);
     expect(events.some(e => e.type === "verified_draft")).toBe(false);
   });

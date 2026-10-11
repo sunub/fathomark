@@ -8,9 +8,9 @@ import type { ModelProvider, ModelRequest, RequestCounter } from "../src/provide
 import { createToolRegistry } from "../src/tools/create-registry"
 
 const supported = { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true }
-const failed = { checks: [{ claim: "draft", evidence: "", differences: ["Role changed"], sameMeaning: false }], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: false }
+const failed = { checks: [{ claim: "draft", facts: [], evidence: "", differences: ["Role changed"], sameMeaning: false }], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: false }
 const analysis = { intent: "revise", applicationQuestion: "", criteria: "명확하게", query: "경험", requiredFacts: [] }
-const ready = { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] }
+const ready = (quote: string) => ({ facts: [{ fact: "본인 행동", sourceId: "S1", quote }], conflicts: [], ready: true })
 const outline = { sourceIds: ["S1"], outline: ["본인 행동"] }
 const draft = (text: string, evidence = ["S1"]) => ({ claims: [{ text, evidence }] })
 const exactCounter: RequestCounter = { count: async () => ({ promptTokens: 100, method: "exact" }) }
@@ -53,7 +53,7 @@ async function run(input: RunInput, responses: unknown[]) {
 describe("career writing guardrails", () => {
   it("blocks invented numbers despite a passing semantic reviewer", async () => {
     const bad = draft("응답 시간을 230ms로 줄였습니다.")
-    const result = await run(inputFor("응답 시간을 320ms로 줄였습니다."), [analysis, ready, outline, bad, supported, bad, supported])
+    const result = await run(inputFor("응답 시간을 320ms로 줄였습니다."), [analysis, ready("응답 시간을 320ms로 줄였습니다."), outline, bad, supported, bad, supported])
     expect(result.calls).toBe(7)
     expect(result.events.some(event => event.type === "verified_draft")).toBe(false)
     expect(result.events.find(event => event.type === "run_completed")).toMatchObject({ outcome: "incomplete" })
@@ -61,14 +61,14 @@ describe("career writing guardrails", () => {
 
   it("blocks omission of explicit mandatory facts despite semantic approval", async () => {
     const bad = draft("테스트를 작성했습니다.")
-    const result = await run(inputFor("테스트 작성을 도왔습니다.", { keepFacts: ["도왔"] }), [analysis, ready, outline, bad, supported, bad, supported])
+    const result = await run(inputFor("테스트 작성을 도왔습니다.", { keepFacts: ["도왔"] }), [analysis, ready("테스트 작성을 도왔습니다."), outline, bad, supported, bad, supported])
     expect(result.calls).toBe(7)
     expect(result.events.some(event => event.type === "verified_draft")).toBe(false)
     expect(result.events.find(event => event.type === "workflow_incomplete")).toMatchObject({ message: expect.stringContaining("도왔") })
   })
 
   it("repairs a failed semantic review once and publishes only the repaired text", async () => {
-    const result = await run(inputFor("테스트 작성을 도왔습니다."), [analysis, ready, outline, draft("전체 프로젝트를 총괄했습니다."), failed, draft("테스트 작성에 도움을 주었습니다."), supported])
+    const result = await run(inputFor("테스트 작성을 도왔습니다."), [analysis, ready("테스트 작성을 도왔습니다."), outline, draft("전체 프로젝트를 총괄했습니다."), failed, draft("테스트 작성에 도움을 주었습니다."), supported])
     expect(result.calls).toBe(7)
     expect(result.events.filter(event => event.type === "workflow_phase" && event.phase === "repair")).toHaveLength(1)
     expect(result.events.filter(event => event.type === "verified_draft")).toEqual([expect.objectContaining({ text: "테스트 작성에 도움을 주었습니다. [[S1]]" })])
@@ -77,7 +77,7 @@ describe("career writing guardrails", () => {
 
   it("never offers an unchanged revision after the single repair allowance", async () => {
     const unchanged = draft("테스트 작성을 도왔습니다.")
-    const result = await run(inputFor("테스트 작성을 도왔습니다."), [analysis, ready, outline, unchanged, supported, unchanged, supported])
+    const result = await run(inputFor("테스트 작성을 도왔습니다."), [analysis, ready("테스트 작성을 도왔습니다."), outline, unchanged, supported, unchanged, supported])
     expect(result.calls).toBe(7)
     expect(result.events.filter(event => event.type === "workflow_phase" && event.phase === "repair")).toHaveLength(1)
     expect(result.events.some(event => event.type === "verified_draft")).toBe(false)
@@ -86,7 +86,7 @@ describe("career writing guardrails", () => {
 
   it("stops after the second failed verification without another repair", async () => {
     const bad = draft("전체 프로젝트를 총괄했습니다.")
-    const result = await run(inputFor("테스트 작성을 도왔습니다."), [analysis, ready, outline, bad, failed, bad, failed])
+    const result = await run(inputFor("테스트 작성을 도왔습니다."), [analysis, ready("테스트 작성을 도왔습니다."), outline, bad, failed, bad, failed])
     expect(result.calls).toBe(7)
     expect(result.events.filter(event => event.type === "workflow_phase" && event.phase === "repair")).toHaveLength(1)
     expect(result.events.some(event => event.type === "verified_draft")).toBe(false)
@@ -95,7 +95,7 @@ describe("career writing guardrails", () => {
   it("preserves partial posting metadata and rejects it as personal evidence", async () => {
     const pastedSource = "개발자 모집 및 직무 설명 ".repeat(1000)
     const bad = draft("개발 경험이 있습니다.", ["S2"])
-    const result = await run(inputFor("테스트 작성을 도왔습니다.", { pastedSource }), [analysis, ready, outline, bad, supported, bad, supported])
+    const result = await run(inputFor("테스트 작성을 도왔습니다.", { pastedSource }), [analysis, ready("테스트 작성을 도왔습니다."), outline, bad, supported, bad, supported])
     expect(result.events.find(event => event.type === "evidence" && event.reference.kind === "public")).toMatchObject({
       sourceId: "S2", reference: { kind: "public", extraction: "partial", omitted: expect.arrayContaining([expect.any(String)]) },
     })

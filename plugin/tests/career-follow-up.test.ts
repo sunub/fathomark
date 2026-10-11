@@ -28,7 +28,7 @@ describe("career follow-up request", () => {
   it("revises the unapplied previous draft from its own evidence, without exploring or re-registering the draft", async () => {
     const { provider, requests } = scripted([
       { intent: "revise", applicationQuestion: "", criteria: "더 짧게", query: "API", requiredFacts: [] },
-      { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] },
+      { facts: [{ fact: "API 이전", sourceId: "S1", quote: "지연을 40% 줄였다" }], conflicts: [], ready: true },
       { sourceIds: ["S1"], outline: ["이전과 결과"] },
       { claims: [{ text: "API 이전으로 지연을 40% 줄였습니다.", evidence: ["S1"] }] },
       ok,
@@ -47,7 +47,7 @@ describe("career follow-up request", () => {
   it("starts a new draft with the carried evidence already cited", async () => {
     const { provider, requests } = scripted([
       { intent: "draft", applicationQuestion: "다른 문항", criteria: "", query: "API", requiredFacts: [] },
-      { ready: false, sourceIds: [], missing: [], conflicts: [] },
+      { facts: [], conflicts: [], ready: false },
     ]);
     const input: RunInput = { question: "다른 문항으로 써줘", mode: "career", packet, previous: { evidence } };
     const events: RunEvent[] = [];
@@ -62,7 +62,7 @@ describe("run session follow-up context", () => {
     // S1 is carried in but never cited; S2 is the selected passage the draft cites.
     const { provider } = scripted([
       { intent: "revise", applicationQuestion: "", criteria: "다듬기", query: "API", requiredFacts: [] },
-      { ready: true, sourceIds: ["S2"], missing: [], conflicts: [] },
+      { facts: [{ fact: "API 이전", sourceId: "S2", quote: "지연을 40% 줄였다" }], conflicts: [], ready: true },
       { sourceIds: ["S2"], outline: ["이전"] },
       { claims: [{ text: previousText, evidence: ["S2"] }] },
       ok,

@@ -17,7 +17,7 @@ describe("career input and runtime wiring", () => {
     const responses = [
       { intent: "draft", applicationQuestion: "협업을 통해 문제를 해결한 경험을 설명하세요.", criteria: "", query: "test", requiredFacts: ["personal action"] },
       "Exploration finished",
-      { ready: true, sourceIds: ["S2"], missing: [], conflicts: [] },
+      { facts: [{ fact: "personal action", sourceId: "S2", quote: "I helped test." }], conflicts: [], ready: true },
       { sourceIds: ["S2"], outline: ["My action"] },
       { claims: [{ text: "I helped with testing.", evidence: ["S2"] }] },
       { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true },
@@ -51,7 +51,7 @@ describe("career input and runtime wiring", () => {
   it("does not complete if cancelled immediately after the verified draft event", async () => {
     const responses = [
       { intent: "revise", applicationQuestion: "", criteria: "shorter", query: "test", requiredFacts: [] },
-      { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] },
+      { facts: [{ fact: "personal action", sourceId: "S1", quote: "I helped test." }], conflicts: [], ready: true },
       { sourceIds: ["S1"], outline: ["action"] },
       { claims: [{ text: "I helped with testing.", evidence: ["S1"] }] },
       { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true },

@@ -29,7 +29,7 @@ const baseInput: RunInput = {
 const analysis = {
   intent: "revise", applicationQuestion: "", criteria: "clearer", query: "experience", requiredFacts: [],
 }
-const readiness = { ready: true, sourceIds: ["S1"], missing: [], conflicts: [] }
+const readiness = (quote: string) => ({ facts: [{ fact: "personal action", sourceId: "S1", quote }], conflicts: [], ready: true })
 const outline = { sourceIds: ["S1"], outline: ["Personal action"] }
 const supported = { checks: [], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true }
 const draft = (text: string) => ({ claims: [{
@@ -71,7 +71,7 @@ async function run(input: RunInput, responses: unknown[], answer?: (question: Us
 describe("career paragraph target integration", () => {
   it("resolves an automatic target from its trusted ID and preserves the exact document snapshot", async () => {
     const { events, requests, questions } = await run(baseInput, [
-      analysis, { candidateIds: [second.id] }, readiness, outline, draft(second.text), supported,
+      analysis, { candidateIds: [second.id] }, readiness(second.text), outline, draft(second.text), supported,
     ])
     const final = events.find(event => event.type === "verified_draft")
     expect(final).toMatchObject({
@@ -86,7 +86,7 @@ describe("career paragraph target integration", () => {
 
   it("prefers an explicit selection and never asks the model to select a different paragraph", async () => {
     const { events, requests } = await run({ ...baseInput, target: selected }, [
-      analysis, readiness, outline, draft(first.text), supported,
+      analysis, readiness(first.text), outline, draft(first.text), supported,
     ])
     expect(events.find(event => event.type === "verified_draft")).toMatchObject({ target: selected })
     expect(events.filter(event => event.type === "workflow_phase").map(event => event.phase)).not.toContain("target")
@@ -96,7 +96,7 @@ describe("career paragraph target integration", () => {
   it("uses selection as an insertion guard rather than forcing revision when analysis chooses draft", async () => {
     const { events, requests } = await run({ ...baseInput, target: selected }, [
       { ...analysis, intent: "draft", applicationQuestion: "Describe your contribution" },
-      "Exploration finished", readiness, outline, draft("I helped test."), supported,
+      "Exploration finished", readiness(first.text), outline, draft("I helped test."), supported,
     ])
     expect(events.find(event => event.type === "run_completed")).toMatchObject({ outcome: "complete" })
     expect(events.find(event => event.type === "verified_draft")).toMatchObject({
@@ -112,7 +112,7 @@ describe("career paragraph target integration", () => {
 
   it("presents trusted exact labels when multiple paragraphs match and accepts only the chosen label", async () => {
     const { events, questions } = await run(baseInput, [
-      analysis, { candidateIds: [first.id, second.id] }, readiness, outline, draft(second.text), supported,
+      analysis, { candidateIds: [first.id, second.id] }, readiness(second.text), outline, draft(second.text), supported,
     ], question => question.options![1]!)
     expect(questions).toEqual([{
       question: "수정할 문단을 골라주세요.",
@@ -139,7 +139,7 @@ describe("career paragraph target integration", () => {
   it("retains the tracked target identity when an empty selection is resolved automatically", async () => {
     const cursor: EditorTarget = { ...selected, selection: "", from: { line: 0, ch: 0 }, to: { line: 0, ch: 0 } }
     const { events } = await run({ ...baseInput, target: cursor }, [
-      analysis, { candidateIds: [second.id] }, readiness, outline, draft(second.text), supported,
+      analysis, { candidateIds: [second.id] }, readiness(second.text), outline, draft(second.text), supported,
     ])
     expect(events.find(event => event.type === "verified_draft")).toMatchObject({
       target: {

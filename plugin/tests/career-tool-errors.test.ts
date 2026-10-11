@@ -20,7 +20,7 @@ describe("career tool error observations", () => {
 
 describe("career exploration tool input repair", () => {
   const analysis = { intent: "draft", applicationQuestion: "Describe your experience", criteria: "", query: "test", requiredFacts: [] };
-  const notReady = { ready: false, sourceIds: [], missing: [], conflicts: [] };
+  const notReady = { facts: [], conflicts: [], ready: false };
   const badCall = (id: string): ModelEvent[] => [{ type: "tool_call" as const, call: { callId: id, name: "ask_user", args: {} } }, { type: "done" as const, reason: "tool_calls" as const }];
   const finished: ModelEvent[] = [{ type: "text" as const, delta: "Exploration is finished." }, { type: "done" as const, reason: "stop" as const }];
   const json = (value: unknown): ModelEvent[] => [{ type: "text" as const, delta: JSON.stringify(value) }, { type: "done" as const, reason: "stop" as const }];

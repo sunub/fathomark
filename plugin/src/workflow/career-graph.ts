@@ -21,6 +21,7 @@ import { paragraphCandidates, resolveParagraphTarget } from "./targets";
 import { prepareCareerRequest } from "./request";
 import { CAREER_LIMITS, type CareerState, type UserQuestion, type UserReply } from "./state";
 import { meaningPasses, verifyMeaning } from "./meaning";
+import { judgeReadiness, READINESS_TASK, readinessSchema } from "./readiness";
 
 export interface WorkflowDeps {
   readonly provider: ModelProvider;
@@ -37,7 +38,6 @@ export interface WorkflowDeps {
 }
 
 const analysisSchema = z.object({ intent: z.enum(["draft", "revise", "unclear"]), applicationQuestion: z.string().max(2000), criteria: z.string().max(200), query: z.string().trim().min(1).max(200), requiredFacts: z.array(z.string().trim().min(1).max(200)).max(10) }).strict();
-const readinessSchema = z.object({ ready: z.boolean(), sourceIds: z.array(z.string()).max(30), missing: z.array(z.string().max(200)).max(10), conflicts: z.array(z.string().max(200)).max(10) }).strict();
 const outlineSchema = z.object({ sourceIds: z.array(z.string()).min(1).max(30), outline: z.array(z.string().min(1).max(300)).min(1).max(10) }).strict();
 const targetSchema = z.object({ candidateIds: z.array(z.string()).max(40) }).strict();
 
@@ -239,9 +239,9 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
     yield phase("readiness");
     let selected: readonly CitedEvidence[] = [];
     while (true) {
-      const readiness = await structured("Check if the actual personal evidence supports answering the question or revising the passage. Return {ready:boolean,sourceIds:string[],missing:string[],conflicts:string[]}. Never regard topic relevance, company facts or mere technical knowledge as proof of personal experience. Preserve requested roles/actions; do not require numeric outcomes. Important unresolved conflicts must make ready=false.", { instruction: input.question, question: analysis.applicationQuestion, requiredFacts: analysis.requiredFacts, evidence: state.evidence, original }, readinessSchema);
+      const readiness = judgeReadiness(await structured(READINESS_TASK, { instruction: input.question, question: analysis.applicationQuestion, requiredFacts: analysis.requiredFacts, evidence: state.evidence, original }, readinessSchema), state.evidence);
       selected = personal(state.evidence).filter(s => readiness.sourceIds.includes(s.sourceId));
-      if (readiness.ready && !readiness.conflicts.length && !readiness.missing.length && selected.length && readiness.sourceIds.every(id => selected.some(s => s.sourceId === id))) break;
+      if (readiness.ready) break;
       if (readiness.conflicts.length || !readiness.missing.length) throw new Incomplete("근거 부족 또는 중요한 충돌을 해결하지 못했습니다.");
       const reply = await ask(`다음 사실을 보충해주세요: ${readiness.missing.join(" / ")}`);
       yield* addEvidence([{ kind: "user", runId, questionId: reply.questionId, answerId: reply.answerId, excerpt: reply.answer }]);

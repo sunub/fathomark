@@ -9,7 +9,7 @@ const input: MeaningInput = {
   original: null,
   style: null,
 }
-const clean = { checks: [{ claim: "캐시를 도입했습니다.", evidence: "캐시를 도입했다.", differences: [], sameMeaning: true }], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true }
+const clean = { checks: [{ claim: "캐시를 도입했습니다.", facts: [], evidence: "캐시를 도입했다.", differences: [], sameMeaning: true }], originalFacts: [], requiredFacts: [], needsNewFacts: false, supported: true }
 
 function reviewer(review: unknown): StructuredCall {
   return async (_task, _data, schema) => schema.parse(review)
