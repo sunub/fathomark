@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 
+import { estimateTokens } from "../src/context/local-counter"
 import { decide } from "../src/harness/policy"
+import { executeTool } from "../src/harness/tool-executor"
 import { registerAskUserTool } from "../src/tools/ask-user"
 import { ToolRegistry } from "../src/tools/registry"
 import type { ToolExecutionContext } from "../src/tools/registry"
@@ -56,4 +58,12 @@ describe("ask_user", () => {
       tool().run({ missing: "x", question: "y" } as never, context(controller.signal))
     ).rejects.toThrow()
   })
+})
+
+it("fits the longest valid Korean request inside its own result budget", async () => {
+  const registry = new ToolRegistry()
+  registerAskUserTool(registry)
+  const input = { missing: "가".repeat(200), question: "나".repeat(300), options: ["다".repeat(100), "라".repeat(100), "마".repeat(100), "바".repeat(100)], relatedSourceIds: ["S10", "S11", "S12", "S13", "S14"] }
+  const result = await executeTool({ callId: "c1", name: "ask_user", args: input }, registry, () => ({ networkResearchEnabled: false }), { ...context(), countResultTokens: estimateTokens })
+  expect(JSON.parse(result.content)).toMatchObject({ status: "question_requested" })
 })

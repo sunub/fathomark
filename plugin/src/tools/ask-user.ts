@@ -72,7 +72,8 @@ export function registerAskUserTool(registry: ToolRegistry): void {
     capability: "ask_user",
     approval: "never",
     timeoutMs: 1_000,
-    resultBudgetTokens: 300,
+    // The output echoes the validated input, so the budget covers its longest Korean form (~1,420).
+    resultBudgetTokens: 1_500,
     // A question is not evidence. The user's answer gets its own reference kind later.
     provenance: () => [],
     run: async (input, context) => {
