@@ -3,6 +3,7 @@ import type { EditorTarget } from "../context/insertion"
 import type { RunEvent, RunSnapshot } from "./events"
 import type { AgentHarness } from "./harness"
 import type { RunInput } from "./harness"
+import type { PreviousCareerResult } from "./run-input"
 
 const MAX_COMPLETED_CONVERSATIONS = 10
 
@@ -14,6 +15,7 @@ export class RunSession {
   private disposed = false
   private request: { input: RunInput; target: EditorTarget | null } | null = null
   private verified: Extract<RunEvent, { type: "verified_draft" }> | null = null
+  private applied = false
 
   constructor(harness: AgentHarness) {
     this.snapshot = { version: 0, state: harness.currentState(), events: [], draft: "" }
@@ -52,6 +54,28 @@ export class RunSession {
     return this.request
   }
 
+  /** The verified draft went into the note, so a follow-up must revise the note, not this draft. */
+  markApplied(): void {
+    this.applied = true
+  }
+
+  /**
+   * What a follow-up career request builds on. A completed run passes only the sources its verified
+   * draft cited, so evidence does not pile up across requests; an unfinished one passes all it
+   * gathered, user answers included. The draft goes along until it is applied to the note.
+   */
+  followUp(): PreviousCareerResult | null {
+    if (this.request?.input.mode !== "career") return null
+    const completed = this.getVerifiedDraft()
+    const cited = completed ? new Set([...completed.text.matchAll(/\[\[(S\d+)\]\]/g)].map((match) => match[1])) : null
+    const evidence = this.snapshot.events.flatMap((event) => (event.type === "evidence" && (!cited || cited.has(event.sourceId)) ? [event] : []))
+      .sort((left, right) => Number(left.sourceId.slice(1)) - Number(right.sourceId.slice(1)))
+      .map((event) => event.reference)
+    const draft = completed && !this.applied ? completed : null
+    if (!evidence.length && !draft) return null
+    return draft ? { evidence, draft: { text: draft.text, target: draft.target } } : { evidence }
+  }
+
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
@@ -61,7 +85,10 @@ export class RunSession {
 
   private receive(event: RunEvent): void {
     if (this.disposed) return
-    if (event.type === "run_started") this.verified = null
+    if (event.type === "run_started") {
+      this.verified = null
+      this.applied = false
+    }
     if (event.type === "verified_draft") this.verified = event
 
     let events = event.type === "run_started" ? [event] : [...this.snapshot.events, event]

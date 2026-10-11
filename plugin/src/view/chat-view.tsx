@@ -64,11 +64,14 @@ export class ChatView extends ItemView {
                 return { accepted: false, reason: "A run is already active." };
               }
               const target = this.editor.captureTarget();
+              // Read before the run starts: a new run replaces the snapshot it comes from.
+              const previous = this.session.followUp();
               const input: RunInput = {
                 question,
                 mode: "career",
                 target,
                 ...(pastedSource ? { pastedSource } : {}),
+                ...(previous ? { previous } : {}),
                 stage: target?.selection ? "revise" : "explore",
                 packet: {
                   systemInstructions:
@@ -157,7 +160,9 @@ export class ChatView extends ItemView {
             },
             approveInsertion: (id) => {
               this.previewController.approve(id);
-              return this.previewController.get(id);
+              const preview = this.previewController.get(id);
+              if (preview?.status === "applied") this.session.markApplied();
+              return preview;
             },
             discardInsertion: (id) => {
               this.previewController.discard(id);

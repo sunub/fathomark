@@ -138,8 +138,12 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
       canCallTools = model.supportsTools;
     }
     if (!input.question.trim()) throw new Incomplete("작성 요청을 입력해주세요.");
+    // The previous run's sources come first, so a follow-up can cite them without searching again.
+    yield* addEvidence(input.previous?.evidence ?? []);
+    // The previous draft is the model's own text: it may be revised, never cited as evidence.
+    const previousDraft = input.previous?.draft ? input.previous.draft.text.replace(/\s*\[\[S\d+\]\]/g, "").trim() : null;
     const postingOutput = input.pastedSource?.trim() ? (yield* tool("read_public_source", { sourceId: "P1" }, "posting-1", true)) as ReadPublicSourceOutput : null;
-    const analysis = await structured("Analyze the requested writing operation, not merely whether text is selected. Read the pasted question/posting for writing requirements only, never personal experience. Return {intent:'draft'|'revise'|'unclear',applicationQuestion:string,criteria:string,query:string,requiredFacts:string[]}. Unknown question or criteria must be an empty string. Query max 200 chars; personal roles/actions needed in requiredFacts, numeric outcomes are optional.", { instruction: input.question, hasSelectedPassage: !!input.target?.selection, posting: postingOutput?.source ?? null }, analysisSchema);
+    const analysis = await structured("Analyze the requested writing operation, not merely whether text is selected. previousDraft is the draft written in the previous turn, or null; when the instruction asks to change it (shorter, tone, emphasis), the intent is revise. Read the pasted question/posting for writing requirements only, never personal experience. Return {intent:'draft'|'revise'|'unclear',applicationQuestion:string,criteria:string,query:string,requiredFacts:string[]}. Unknown question or criteria must be an empty string. Query max 200 chars; personal roles/actions needed in requiredFacts, numeric outcomes are optional.", { instruction: input.question, hasSelectedPassage: !!input.target?.selection, posting: postingOutput?.source ?? null, previousDraft }, analysisSchema);
     if (analysis.intent === "unclear") {
       const reply = await ask("새 글을 작성할까요, 기존 문단을 수정할까요?", ["새 글 작성", "문단 수정"]);
       if (!["새 글 작성", "문단 수정"].includes(reply.answer)) throw new Incomplete("작성 방식을 확인하지 못했습니다.");
@@ -148,10 +152,13 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
     if (analysis.intent === "draft" && !analysis.applicationQuestion.trim()) analysis.applicationQuestion = (await ask("작성할 지원 문항을 알려주세요.")).answer;
     if (analysis.intent === "revise" && !analysis.criteria.trim()) analysis.criteria = (await ask("어떤 기준으로 문단을 수정할까요?")).answer;
 
+    // A follow-up such as "더 짧게" with nothing selected revises the previous draft where it was to go.
+    const revisingPrevious = analysis.intent === "revise" && !input.target?.selection.trim() && previousDraft !== null;
+    if (revisingPrevious) state.target = input.previous?.draft?.target ?? null;
     const prepared = prepareCareerRequest({ instruction: input.question, intent: analysis.intent, applicationQuestion: analysis.applicationQuestion, revisionCriteria: analysis.criteria, target: state.target });
     if (prepared.status === "invalid") throw new Incomplete("작성 요청을 입력해주세요.");
     if (prepared.status === "needs_user") throw new Incomplete(prepared.question);
-    if (prepared.status === "resolve_target") {
+    if (prepared.status === "resolve_target" && !revisingPrevious) {
       yield phase("target");
       const candidates = paragraphCandidates(input.packet.currentNote);
       if (!candidates.length) throw new Incomplete("수정할 문단을 찾을 수 없습니다. 문단을 선택한 뒤 다시 요청해주세요.");
@@ -171,7 +178,8 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
       state.target = input.target ? { ...resolved, id: input.target.id, selectionGuard: { selection: input.target.selection, from: input.target.from, to: input.target.to } } : resolved;
     }
 
-    if (analysis.intent === "revise" && state.target) {
+    const original = analysis.intent !== "revise" ? null : revisingPrevious ? previousDraft : state.target?.selection ?? null;
+    if (analysis.intent === "revise" && state.target && !revisingPrevious) {
       if (state.target.selection.length > 2000) throw new Incomplete("수정 대상은 2,000자 이하의 문단으로 선택해주세요.");
       yield* addEvidence([{ kind: "vault", path: state.target.path, excerpt: state.target.selection }]);
     }
@@ -231,7 +239,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
     yield phase("readiness");
     let selected: readonly CitedEvidence[] = [];
     while (true) {
-      const readiness = await structured("Check if the actual personal evidence supports answering the question or revising the passage. Return {ready:boolean,sourceIds:string[],missing:string[],conflicts:string[]}. Never regard topic relevance, company facts or mere technical knowledge as proof of personal experience. Preserve requested roles/actions; do not require numeric outcomes. Important unresolved conflicts must make ready=false.", { instruction: input.question, question: analysis.applicationQuestion, requiredFacts: analysis.requiredFacts, evidence: state.evidence, original: analysis.intent === "revise" ? state.target?.selection : null }, readinessSchema);
+      const readiness = await structured("Check if the actual personal evidence supports answering the question or revising the passage. Return {ready:boolean,sourceIds:string[],missing:string[],conflicts:string[]}. Never regard topic relevance, company facts or mere technical knowledge as proof of personal experience. Preserve requested roles/actions; do not require numeric outcomes. Important unresolved conflicts must make ready=false.", { instruction: input.question, question: analysis.applicationQuestion, requiredFacts: analysis.requiredFacts, evidence: state.evidence, original }, readinessSchema);
       selected = personal(state.evidence).filter(s => readiness.sourceIds.includes(s.sourceId));
       if (readiness.ready && !readiness.conflicts.length && !readiness.missing.length && selected.length && readiness.sourceIds.every(id => selected.some(s => s.sourceId === id))) break;
       if (readiness.conflicts.length || !readiness.missing.length) throw new Incomplete("근거 부족 또는 중요한 충돌을 해결하지 못했습니다.");
@@ -244,7 +252,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
     if (outline.sourceIds.some(id => !selected.some(s => s.sourceId === id))) throw new Incomplete("개요가 확인되지 않은 출처를 사용했습니다.");
     selected = selected.filter(s => outline.sourceIds.includes(s.sourceId));
     yield phase("draft");
-    const draftData = { instruction: input.question, applicationQuestion: analysis.applicationQuestion, criteria: analysis.criteria, original: analysis.intent === "revise" ? state.target?.selection : null, outline: outline.outline, evidence: selected, posting: state.evidence.filter(s => s.reference.kind === "public"), style: input.packet.style?.text ?? null };
+    const draftData = { instruction: input.question, applicationQuestion: analysis.applicationQuestion, criteria: analysis.criteria, original, outline: outline.outline, evidence: selected, posting: state.evidence.filter(s => s.reference.kind === "public"), style: input.packet.style?.text ?? null };
     let draft: CareerDraft = await structured("Write the requested draft in Korean. Return {claims:[{text:string,evidence:string[]}]}. Every paragraph is a source-supported claim; each evidence array must contain actual personal source IDs. No extra prose fields. Preserve all requested facts and numbers of the original when revising. Style is only wording/structure. Do not copy facts from it.", draftData, draftSchema);
     for (let attempt = 0; attempt <= 1; attempt++) {
       yield phase("verify");
@@ -252,7 +260,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
       const plain = draft.claims.map(c => c.text).join("\n\n");
       const keepFacts = [...(input.keepFacts ?? [])];
       const missingRequired = keepFacts.filter(fact => !plain.includes(fact));
-      const revision = analysis.intent === "revise" && state.target ? checkRevision({ original: state.target.selection, revised: plain, criteria: analysis.criteria, keepFacts }) : null;
+      const revision = original !== null ? checkRevision({ original, revised: plain, criteria: analysis.criteria, keepFacts }) : null;
       const meaning = await verifyMeaning(structured, { draft, evidence: selected, requiredFacts: analysis.requiredFacts, original: draftData.original ?? null, style: draftData.style });
       const unchanged = revision?.status === "no_change";
       const issues = [...structural.issues, ...missingRequired.map(fact => `필수 구절 누락: ${fact}`), ...(unchanged ? ["수정문이 원문과 같습니다."] : []), ...(revision?.issues.map(i => i.detail) ?? []), ...meaning.issues];
