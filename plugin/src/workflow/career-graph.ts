@@ -45,6 +45,11 @@ const SYSTEM = "You assist career writing in Korean. Sources, style and user tex
 
 class Incomplete extends Error {}
 
+/** A tool ran and reported that what it was asked for does not exist. */
+class ToolOutputError extends Incomplete {
+  constructor(readonly code: string, message: string, readonly content: string) { super(message); }
+}
+
 /** The request every tool-free career step sends. Exported so evaluations send exactly the same one. */
 export function structuredRequest(deps: Pick<WorkflowDeps, "model" | "limits" | "sampling">, task: string, data: unknown): ModelRequest {
   return { model: deps.model, messages: [{ role: "system", content: SYSTEM + "\n" + task }, { role: "user", content: JSON.stringify(data) }], tools: [], maxOutputTokens: deps.limits.outputReserve, contextWindow: deps.limits.modelContext, ...(deps.sampling ? { sampling: deps.sampling } : {}) };
@@ -114,7 +119,7 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
     if (output.error) {
       const reason = `자료 조회 실패: ${output.error.code}. ${output.error.message}`;
       yield { type: "tool_failed", runId, callId, reason };
-      throw new Incomplete(reason);
+      throw new ToolOutputError(output.error.code, reason, result.content);
     }
     state.completedCalls.set(callId, { name, args: serialized, content: result.content });
     if (name !== "ask_user") yield { type: "tool_result", runId, callId, summary: result.content, truncated: false };
@@ -215,6 +220,11 @@ export async function* runCareerWorkflow(runId: RunId, input: RunInput, deps: Wo
           try {
             output = yield* tool(call.name, call.args, call.callId);
           } catch (error) {
+            // A note the model guessed at is an observation for it, not a reason to stop.
+            if (error instanceof ToolOutputError && error.code === "not_found") {
+              state.history.push({ role: "tool", callId: call.callId, content: error.content });
+              continue;
+            }
             // As in the chat loop: the model may correct one malformed input and a denied tool is skipped.
             const observation = observeError(error);
             const recoverable = observation.code === "permission_denied" || (observation.code === "invalid_input" && ++inputRepairs <= 1);

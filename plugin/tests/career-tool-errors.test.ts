@@ -48,6 +48,13 @@ describe("career exploration tool input repair", () => {
     expect(requests[1]!.thinking).toBe(false);
   });
 
+  it("tells the model a note it asked for does not exist instead of ending the run", async () => {
+    const readMissing: ModelEvent[] = [{ type: "tool_call", call: { callId: "c1", name: "read_note", args: { path: "missing.md" } } }, { type: "done", reason: "tool_calls" }];
+    const { events, requests } = await run([json(analysis), readMissing, finished, json(notReady)]);
+    expect(events.find(e => e.type === "tool_failed")).toMatchObject({ callId: "c1" });
+    expect(requests[2]!.messages.at(-1)).toMatchObject({ role: "tool", callId: "c1", content: expect.stringContaining("was not found") });
+  });
+
   it("fails the run on a second malformed input", async () => {
     const { events } = await run([json(analysis), badCall("c1"), badCall("c2")]);
     expect(events.filter(e => e.type === "tool_failed")).toHaveLength(2);
