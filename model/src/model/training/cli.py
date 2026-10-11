@@ -67,6 +67,7 @@ def _train(args):
         or args.alpha <= 0
     ):
         raise ValueError("max-length >= 2, rank >= 1 and finite alpha > 0 are required")
+
     selected = args.input_dir.expanduser()
     documents = load_documents(selected)
     root = selected.resolve()
