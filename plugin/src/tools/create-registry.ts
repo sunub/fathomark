@@ -6,10 +6,10 @@
  * registered, and the harness offers them to the model only while the research
  * setting allows their capability (the agent loop filters on every request).
  *
- * Deliberately absent until their wiring is complete — registering a half-built
- * tool would let the model call it:
- *   ask_user, save_working_note, read_public_source, search_public_sources
- *   (need the harness-side waiting, run state and consent paths).
+ * ask_user is registered only when the caller can wait for an answer, and
+ * read_public_source only with a pasted source to read. Deliberately absent —
+ * registering a half-built tool would let the model call it:
+ *   save_working_note, search_public_sources (need run state and consent paths).
  *
  * propose_revision is registered but withheld in the exploration stage (see
  * harness/stage), so only a run on a user-chosen passage can call it.

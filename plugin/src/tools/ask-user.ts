@@ -6,9 +6,8 @@
  * question ID, and completes the call once a valid answer arrives. Nothing here
  * is a run ID or question ID, because the model must not choose either.
  *
- * Not registered by `main.ts` on purpose. Until the harness can park a run on
- * `waiting_for_user`, the executor would hand this request to the model as if it
- * were the user's answer.
+ * Registered only with `includeQuestions`, by callers whose run can wait: the
+ * career workflow turns this request into a question the harness parks on.
  */
 
 import { z } from "zod"
