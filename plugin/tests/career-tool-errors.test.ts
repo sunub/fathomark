@@ -42,6 +42,12 @@ describe("career exploration tool input repair", () => {
     expect(events.find(e => e.type === "run_completed")).toMatchObject({ outcome: "incomplete" });
   });
 
+  it("asks for exploration without hidden reasoning, which would spend the output limit unseen", async () => {
+    const { requests } = await run([json(analysis), finished, json(notReady)]);
+    expect(requests[1]!.tools.length).toBeGreaterThan(0);
+    expect(requests[1]!.thinking).toBe(false);
+  });
+
   it("fails the run on a second malformed input", async () => {
     const { events } = await run([json(analysis), badCall("c1"), badCall("c2")]);
     expect(events.filter(e => e.type === "tool_failed")).toHaveLength(2);
