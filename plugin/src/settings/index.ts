@@ -24,6 +24,12 @@ export interface FathomarkSettings {
    * e.g. a cover-letter folder. Empty means only notes labelled `type: experience` do.
    */
   readonly experienceFolder: string
+  /**
+   * Fuse keyword search with local bge-m3 embeddings and let the chat model judge each
+   * candidate note. Everything stays on the local provider; without the embedding model
+   * search falls back to keywords.
+   */
+  readonly semanticSearch: boolean
 }
 
 export const DEFAULT_SETTINGS: FathomarkSettings = {
@@ -32,6 +38,7 @@ export const DEFAULT_SETTINGS: FathomarkSettings = {
   networkResearchEnabled: false,
   selectedStyle: null,
   experienceFolder: "",
+  semanticSearch: true,
 }
 
 /** Tolerates a settings file written by an older version, or a corrupt one. */
@@ -53,6 +60,8 @@ export function parseSettings(raw: unknown): FathomarkSettings {
       typeof value.experienceFolder === "string"
         ? value.experienceFolder
         : DEFAULT_SETTINGS.experienceFolder,
+    semanticSearch:
+      typeof value.semanticSearch === "boolean" ? value.semanticSearch : DEFAULT_SETTINGS.semanticSearch,
   }
 }
 
@@ -74,4 +83,6 @@ function parseSelectedStyle(value: unknown): SelectedStyle | null {
 export interface SettingsHost {
   readonly settings: FathomarkSettings
   updateSettings(patch: Partial<FathomarkSettings>): Promise<void>
+  /** Why the last semantic indexing stopped, or null. */
+  semanticStatus(): string | null
 }

@@ -15,6 +15,7 @@
  * harness/stage), so only a run on a user-chosen passage can call it.
  */
 
+import type { SemanticBackend } from "./hybrid-search"
 import { experienceRuleFor } from "./note-kind"
 import { registerProposeRevisionTool } from "./propose-revision"
 import { registerNoteContextTool } from "./note-context"
@@ -31,11 +32,13 @@ export interface ToolServices {
   readonly fetchImpl?: typeof fetch
   readonly includeQuestions?: boolean
   readonly publicSources?: PublicSourceReader
+  /** Read on every search. Undefined means keyword search only. */
+  readonly semantic?: () => SemanticBackend | undefined
 }
 
 export function createToolRegistry(services: ToolServices): ToolRegistry {
   const registry = new ToolRegistry()
-  registerVaultTools(registry, services.vault, () => experienceRuleFor(services.experienceFolder()))
+  registerVaultTools(registry, services.vault, () => experienceRuleFor(services.experienceFolder()), services.semantic)
   registerNoteContextTool(registry, services.vault)
   registerProposeRevisionTool(registry)
   registerWikipediaTools(registry, services.fetchImpl)

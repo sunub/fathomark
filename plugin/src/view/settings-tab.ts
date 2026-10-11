@@ -58,6 +58,24 @@ export class FathomarkSettingTab extends PluginSettingTab {
           })
       )
 
+    const indexError = this.plugin.semanticStatus()
+    new Setting(containerEl)
+      .setName("Semantic search")
+      .setDesc(
+        "Finds evidence by meaning as well as by words, using the bge-m3 embedding model on your " +
+          "local provider (install it with `ollama pull bge-m3`), and lets your chat model check that " +
+          "each note is your own experience. Notes are indexed in the background and never leave " +
+          "your computer. Without the model, search uses keywords only." +
+          (indexError ? ` Last indexing error: ${indexError}` : "")
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.semanticSearch)
+          .onChange(async (value) => {
+            await this.plugin.updateSettings({ semanticSearch: value })
+          })
+      )
+
     new Setting(containerEl).setName("Research").setHeading()
 
     new Setting(containerEl)

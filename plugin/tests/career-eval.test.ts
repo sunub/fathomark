@@ -7,6 +7,10 @@ import { PROPOSED_LIMITS } from "../src/harness/budget"
 import type { RunId } from "../src/harness/events"
 import type { RunInput } from "../src/harness/run-input"
 import { createOllamaProvider } from "../src/providers/ollama"
+import { createOllamaEmbedder } from "../src/providers/ollama-embedder"
+import { createOllamaJudge } from "../src/providers/ollama-judge"
+import { VectorIndex } from "../src/retrieval/vector-index"
+import type { SemanticBackend } from "../src/tools/hybrid-search"
 import { createToolRegistry } from "../src/tools/create-registry"
 import { runCareerWorkflow } from "../src/workflow/career-graph"
 import { loadFixtureVault } from "./support/fixture-vault"
@@ -41,6 +45,8 @@ interface FlowResult {
  *   FATHOMARK_LIVE_REPS    runs per case, default 1
  *   FATHOMARK_LIVE_SPLIT   optional: dev (career-cases.json) or heldout (career-cases-heldout.json)
  *   FATHOMARK_LIVE_FOLDER  experience folder setting, default 경험
+ *   FATHOMARK_LIVE_SEMANTIC  set to 1 to fuse keyword search with bge-m3 embeddings (as the app does when enabled)
+ *   FATHOMARK_LIVE_JUDGE   set to 1 to also let the live model judge each candidate note (needs SEMANTIC)
  * The simulated user knows nothing beyond the vault, so a question can only end a run as incomplete.
  * It reports rates and does not gate: there is no agreed pass line for the whole flow yet.
  */
@@ -55,6 +61,13 @@ describe.skipIf(!liveModel)("live career workflow", () => {
     const reps = Number(process.env.FATHOMARK_LIVE_REPS ?? 1)
     const splits = Object.entries(SPLITS).filter(([split]) => !process.env.FATHOMARK_LIVE_SPLIT || split === process.env.FATHOMARK_LIVE_SPLIT)
     const results: FlowResult[] = []
+    let semantic: SemanticBackend | undefined
+    if (process.env.FATHOMARK_LIVE_SEMANTIC === "1") {
+      const embedder = createOllamaEmbedder(base)
+      const index = new VectorIndex(embedder)
+      await index.sync(vault, new AbortController().signal)
+      semantic = process.env.FATHOMARK_LIVE_JUDGE === "1" ? { index, embedder, judge: createOllamaJudge(base, liveModel!) } : { index, embedder }
+    }
 
     for (const [split, path] of splits) {
       const cases = JSON.parse(readFileSync(path, "utf8")) as FlowCase[]
@@ -77,7 +90,7 @@ describe.skipIf(!liveModel)("live career workflow", () => {
           for await (const event of runCareerWorkflow(`${item.id}-${rep}` as RunId, input, {
             provider: counted,
             model: liveModel!,
-            tools: createToolRegistry({ vault, experienceFolder: () => process.env.FATHOMARK_LIVE_FOLDER ?? "경험", includeQuestions: true }),
+            tools: createToolRegistry({ vault, experienceFolder: () => process.env.FATHOMARK_LIVE_FOLDER ?? "경험", includeQuestions: true, semantic: () => semantic }),
             limits: PROPOSED_LIMITS,
             counter: createLocalCounter(),
             permissions: () => ({ networkResearchEnabled: false }),
@@ -106,7 +119,7 @@ describe.skipIf(!liveModel)("live career workflow", () => {
       }
     }
 
-    console.log(`model=${liveModel} reps=${reps}`)
+    console.log(`model=${liveModel} reps=${reps} search=${semantic ? (semantic.judge ? "hybrid+judge" : "hybrid") : "keyword"}`)
     for (const row of results) {
       console.log(`${row.id.padEnd(12)} ${row.split.padEnd(7)} ${row.shouldAbstain ? "abstain" : "answer "} ${row.outcome.padEnd(10)} found=${row.found ? "y" : "n"} cited=${row.cited ? "y" : "n"} q=${row.questions} calls=${String(row.modelCalls).padStart(2)} ${row.seconds.toFixed(0).padStart(3)}s ${row.reason}`)
     }

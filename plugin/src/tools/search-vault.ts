@@ -49,7 +49,8 @@ export function registerSearchVault(
     },
     capability: "search_vault",
     approval: "never",
-    timeoutMs: 10_000,
+    // Semantic search lets the chat model judge up to about nine candidate notes (~3.4 s measured).
+    timeoutMs: 30_000,
     resultBudgetTokens: 1_400,
     provenance: (output) => output.references,
     run: async ({ query, limit }, context) => {
