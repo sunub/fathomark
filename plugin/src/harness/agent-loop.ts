@@ -13,6 +13,7 @@ import type { RunInput } from "./run-input";
 import { decide, type PermissionContext } from "./policy";
 import { raceWithSignal } from "./abort";
 import { handleToolCall } from "./tool-call-handler";
+import { completeWithoutTools } from "./completion";
 import { isToolInStage, type RunStage } from "./stage";
 import { MAX_MODEL_ROUNDS, type LoopState, type ToolCallDeps } from "./loop-state";
 
@@ -151,12 +152,7 @@ export async function* runAgentLoop(
       signal,
     );
     if (calls.length === 0) {
-      yield {
-        type: "run_completed",
-        runId,
-        outcome: doneReason === "length" ? "incomplete" : "complete",
-        reason: doneReason,
-      };
+      yield { type: "run_completed", runId, ...completeWithoutTools(input.mode ?? "chat", doneReason, state.citations) };
       return;
     }
 
