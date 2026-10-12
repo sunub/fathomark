@@ -7,9 +7,9 @@
  * enforced mechanically: a Wikipedia query is built from external references
  * and public topic terms, never from a vault reference's contents.
  *
- * `granularity` is deliberately note-level for now. ROADMAP open decision 7 —
- * note, heading, block or range — is unresolved, and widening it later is an
- * additive change to this union.
+ * `granularity` is deliberately note-level for now. The reference unit — note,
+ * heading, block or range — is an open decision in docs/DIRECTION.md, and
+ * widening it later is an additive change to this union.
  */
 
 export interface VaultEvidenceReference {
