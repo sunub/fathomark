@@ -1,5 +1,7 @@
 # 도구 설계 대비 구현 평가
 
+> 기록 (2026-10-11). 이후 상태는 [실제 모델 보고서](../docs/testing/career-flow-real-model-report.md)와 [DIRECTION.md](../docs/DIRECTION.md)를 본다.
+
 평가일: 2026-10-11. 대상은 `docs/design/workflow/tools/`의 README 및 도구 10개 문서와 현재 작업 트리의 코드다. 미커밋 코드도 포함했다. 코드·기존 문서는 수정하지 않았다.
 
 ## 결론

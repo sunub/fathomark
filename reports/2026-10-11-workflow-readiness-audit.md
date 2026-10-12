@@ -1,5 +1,7 @@
 # Workflow 설계 대비 준비도 재평가
 
+> 기록 (2026-10-11). 여기서 지적한 후속 요청·미리보기 재생성 등은 이후 고쳐졌다. 이후 상태는 [실제 모델 보고서](../docs/testing/career-flow-real-model-report.md)와 [DIRECTION.md](../docs/DIRECTION.md)를 본다.
+
 평가일: 2026-10-11. 대상: `docs/design/workflow/`의 Markdown·HTML과 최신 작업 트리의 코드·테스트. 평가 과정에서 제품 코드와 설계 문서는 수정하지 않았다. 이 보고서만 추가했다.
 
 ## 결론
