@@ -4,6 +4,9 @@ status: accepted
 
 # Ground career writing in the user's notes with any capable model
 
+> Amended by [ADR 0009](./0009-hybrid-local-retrieval.md): retrieval beyond lexical search is decided (hybrid local search with a local judge).
+> Under review by [ADR 0010](./0010-local-curation-codex-drafting.md) (proposed): it would replace the hosted provider with the user's API key by the user's Codex CLI, and withdraw the conclusion that local models bring no capability gain. Until 0010 is accepted, those parts stand.
+
 Fathomark's first concrete job is **career writing**: turning a job posting or an application question into resume bullets and essay answers that use the user's own experience, recorded in their Vault, and read like the user's own writing. The product value is the harness around the model — finding the right experience, citing it, refusing to invent it, and applying changes only after approval — not a model Fathomark trains or hosts.
 
 ## Context
