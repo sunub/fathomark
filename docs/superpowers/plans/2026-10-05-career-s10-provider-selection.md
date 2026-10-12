@@ -1,5 +1,7 @@
 # S10: provider 선택과 로컬 Gemma 4 폴백
 
+> 2026-10-12: 원격 작성 경로는 ChatGPT 로그인(S8) 대신 사용자의 Codex CLI(`codex exec`)다([ADR 0010](../../adr/0010-local-curation-codex-drafting.md), 제안). 아래 "ChatGPT 로그인"은 "Codex CLI 로그인"으로 읽는다. 선택 규칙과 자동 전환 금지는 그대로다. 구현은 ADR 0010 채택 뒤에 한다.
+
 **목표**: ChatGPT 로그인이 가능하면 그 provider를, 아니면 로컬 Gemma 4(Ollama)를 쓰는 선택 규칙과, 기기 사양에 맞는 Gemma 4 변형 안내를 만든다.
 
 **선행**: S6, S7. S8과 병행 가능(S8이 없어도 로컬만으로 동작해야 한다). **프레임워크**: 없음.
