@@ -125,5 +125,5 @@ S2(검색 순위와 "근거 없음" 보고)가 합격선을 넘기까지 무엇�
 - 코드: `plugin/src/tools/hybrid-search/`, `plugin/src/providers/ollama-judge/`, `plugin/src/retrieval/`
 - 평가 하네스: `plugin/tests/local-vault-eval.test.ts` (`FATHOMARK_LOCAL_JUDGE=gemma4:e4b`로 판정을 켠다)
 - 측정 기록: [career-retrieval-baseline.md](./career-retrieval-baseline.md)
-- 계획: [S2 계획](../superpowers/plans/2026-10-05-career-s2-retrieval-ranking.md)
+- 계획: [S2 계획](../superpowers/plans-archive/2026-10-05-career-s2-retrieval-ranking.md)
 - 저장소 밖: 평가 데이터 `~/fathomark-local/`, 실험 루프 `~/fathomark-local/experiments/` (Vault 내용이 섞여 있어 저장소에 넣지 않는다)

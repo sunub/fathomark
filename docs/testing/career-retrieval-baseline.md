@@ -1,5 +1,7 @@
 # 커리어 검색 기준선 (S1)
 
+> 기록. 이 문서가 언급하는 ROADMAP은 [DIRECTION.md](../DIRECTION.md)로 합쳐졌고, 검색 방식은 [ADR 0009](../adr/0009-hybrid-local-retrieval.md)로 결정됐다.
+
 측정일: 2026-10-05. 대상: `plugin/src/tools/vault-search.ts`의 현재 lexical `searchVault`(질문 전체를 그대로 질의로 사용). 데이터: `plugin/tests/fixtures/career-vault/`의 합성 노트 15개(경험 6, 의견 3, 스터디 4, 기타 2)와 `career-cases.json`의 12개 질문(답이 있는 질문 9, 근거가 없어야 하는 질문 3). 재현: `pnpm vitest run tests/retrieval-baseline.test.ts`.
 
 표본이 작고 합성 데이터라 숫자는 방향 확인용이다. 통계적 결론을 내리지 않는다.
