@@ -1,5 +1,7 @@
 # Fathomark model workspace
 
+> Archived record. LoRA training is not part of the product ([ADR 0007](../docs/adr/0007-grounded-career-writing-with-hosted-models.md)); this workspace only records the experiments. Current direction: [DIRECTION.md](../docs/DIRECTION.md).
+
 This Python package prepares evaluation data and trains a local writing-style
 LoRA candidate from an explicitly selected folder. The default base is
 Qwen/Qwen3-1.7B. The Obsidian plugin does not run or automatically activate it.
