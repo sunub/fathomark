@@ -1,7 +1,7 @@
 # Fathomark
 
 A desktop-only Obsidian plugin. TypeScript lives in `plugin/` and `design-system/`;
-`model/` is an optional Python training workspace whose ADR (0003) is still proposed.
+`model/` only records the archived LoRA experiments (ADR 0003, superseded by ADR 0007).
 
 <!--
 This file is loaded into every conversation, so each line has to earn its tokens.
