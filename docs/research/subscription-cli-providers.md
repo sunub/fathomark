@@ -1,5 +1,7 @@
 # 구독 계정 CLI를 provider로 쓰는 방식 조사 (Claude Code / Codex)
 
+> 기록 (2026-10-05). 이후 Codex CLI가 작성 경로로 제안됐다([ADR 0010](../adr/0010-local-curation-codex-drafting.md)). 이 문서의 약관 판단("모호")은 아직 유효하며, 공개 배포 전에 확인해야 한다([DIRECTION.md](../DIRECTION.md)).
+
 확인일: 2026-10-05. 코드는 수정하지 않았고, 아래 내용은 모두 1차 출처(공식 문서, 공식 저장소 소스, 약관 원문)만 근거로 한다. 확인하지 못한 항목은 "확인 못함"으로 표시했다.
 
 관련 결정: [ADR 0007](../adr/0007-grounded-career-writing-with-hosted-models.md)은 호스팅 provider를 "사용자의 API 키 + 명시적 동의"로 전제한다. 이 노트는 그 전제에 "이미 로그인한 구독 CLI를 자식 프로세스로 실행"이라는 선택지를 추가할 수 있는지 판단하기 위한 것이다.

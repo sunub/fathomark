@@ -1,5 +1,7 @@
 # SIWC SDK 스파이크 (2026-10-05)
 
+> 기록 (2026-10-05). ChatGPT 로그인(S8)은 보관됐고, 원격 작성 경로는 Codex CLI로 제안됐다([ADR 0010](../adr/0010-local-curation-codex-drafting.md)).
+
 범위: 문서·소스 조사와 scratchpad 번들 측정. Electron/Obsidian 실구동과 실제 로그인은 하지 않았다. 저장소 코드는 수정하지 않았다.
 출처 약칭: [D]=https://developers.openai.com/siwc/ 하위 `.md` 원문, [R]=https://github.com/openai/sign-in-with-chatgpt-devkit (커밋 f723814, 2026-09-29), [C]=https://developers.openai.com/cookbook/articles/sign-in-with-chatgpt
 

@@ -1,5 +1,7 @@
 # Fathomark 서비스 방향 보고서
 
+> 기록 (2026-10-05). 현재 방향은 [DIRECTION.md](../DIRECTION.md)다. 이 보고서의 "호스티드 API(사용자 키) 기본" 우선순위는 로컬 선별 + Codex CLI 작성 제안([ADR 0010](../adr/0010-local-curation-codex-drafting.md))으로 바뀌었다.
+
 작성일: 2026-10-05. 근거: [ADR 0007](../adr/0007-grounded-career-writing-with-hosted-models.md), [subscription-cli-providers.md](subscription-cli-providers.md), [cli-agent-wrapping-token-economy.md](cli-agent-wrapping-token-economy.md), 2026-10-05 `codex exec` 실측. 코드는 수정하지 않았다. 이 문서는 제안이며 결정이 아니다.
 
 ## 1. 결론

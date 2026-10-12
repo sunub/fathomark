@@ -1,5 +1,7 @@
 # 번들 크기 / 호환성 / checkpointer 실측
 
+> 기록 (2026-10-05). 결론: 도입하지 않음([ADR 0008](../adr/0008-no-agent-framework.md)).
+
 실측일 2026-10-05. 환경: Node v24.18, esbuild 0.25.12(락파일 기준), pnpm 12.5.1.
 저장소는 수정하지 않았고 scratchpad `bundle-delta/`에 workspace 복사본을 `--frozen-lockfile`로 설치해 측정했다.
 추가 설치: langchain 1.5.15, @langchain/core 1.2.14, @langchain/langgraph 1.4.19. 모든 빌드는 `node build.mjs production` 그대로(예산 900KB 검사 포함).

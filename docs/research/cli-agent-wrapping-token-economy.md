@@ -1,5 +1,7 @@
 # CLI 위에서 동작하는 에이전트 도구들의 토큰 절감 사례 조사
 
+> 기록 (2026-10-05). Codex CLI 작성 경로([ADR 0010](../adr/0010-local-curation-codex-drafting.md))의 고정 토큰과 절감 수단 근거로 쓴다. 현재 방향은 [DIRECTION.md](../DIRECTION.md).
+
 확인일: 2026-10-05. 코드는 수정하지 않았다. 근거는 공식 문서와 공식 저장소 소스뿐이며, 확인하지 못한 항목은 "확인 못함"으로 적었다. 이전 노트 [subscription-cli-providers.md](subscription-cli-providers.md)(약관, Cline 구 구현의 플래그)와 겹치는 내용은 반복하지 않는다. `[내 해석]`은 소스에서 직접 확인하지 않은 추론이다.
 
 조사 기준 커밋 (모두 `https://github.com/<repo>/blob/<commit>/<path>#L<line>` 형태로 열린다):

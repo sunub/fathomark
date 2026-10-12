@@ -1,5 +1,7 @@
 # LangChain / LangGraph / Deep Agents 적합성 검증
 
+> 기록 (2026-10-05). 결론: 도입하지 않음([ADR 0008](../adr/0008-no-agent-framework.md)).
+
 검증일 2026-10-05. 환경: Node v24.18, esbuild 0.28.2, scratchpad 설치 (`/private/tmp/claude-501/-Users-sunub-workspace-fathomark/41a79216-8247-47f3-9c63-5f226d9a2683/scratchpad/lc-spike`, 저장소 미수정).
 근거는 설치된 패키지의 타입/소스와 실행 실험이며, 공식 웹 문서는 열람하지 않았다(해당 항목은 "확인 못함").
 
