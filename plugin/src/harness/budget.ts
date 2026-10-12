@@ -2,8 +2,8 @@
  * The request context budget.
  *
  * The numbers below are the PROPOSAL in docs/MODEL_SELECTION.md, not an accepted
- * decision — docs/NEXT_SESSION.md lists "Model context and output budget" as the
- * first unresolved decision, and it has to be tested against the real flow,
+ * decision — docs/DIRECTION.md lists "model context and output budget" as an
+ * open decision, and it has to be tested against the real flow,
  * Korean tokenisation, tool-message preservation and evidence recall. They live
  * in one place so that resolving that decision is an edit here rather than a
  * search across the harness.
