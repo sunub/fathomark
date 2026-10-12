@@ -2,8 +2,8 @@
  * ModelProvider — the product-owned interface from docs/ARCHITECTURE.md.
  *
  * Nothing below is an SDK type. That is the whole point: CONTEXT.md calls a
- * provider "a replaceable adapter", and ROADMAP open decision 4 (Ollama native
- * vs OpenAI-compatible) is still open. Whatever wins, it implements this.
+ * provider "a replaceable adapter". Ollama's native API implements it today, and
+ * any later provider (ADR 0010 proposes the user's Codex CLI) implements it too.
  */
 
 export interface ModelInfo {

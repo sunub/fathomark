@@ -1,11 +1,9 @@
 /*
- * A deterministic provider, for Phase 0 and for tests.
+ * A deterministic provider for tests.
  *
- * ROADMAP Phase 0 asks the plugin to "run a fake streamed response through the
- * harness, cancel it, and unload without leaked resources" before any real
- * provider is chosen. That is what this is for: it makes the harness, the run
- * states, cancellation and the unload path testable while ROADMAP open decision
- * 4 is still open.
+ * It began as the Phase 0 provider that ran a fake streamed response through
+ * the harness before any real provider existed. It still makes the harness, the
+ * run states, cancellation and the unload path testable without a real model.
  *
  * It is deterministic on purpose. A fake that varies cannot tell you whether a
  * streaming bug is yours or the model's.
