@@ -53,7 +53,7 @@
 
 ## 구현 현황
 
-기준: 2026-10-11, `main` 브랜치. "실제 모델"은 로컬 `gemma4:e4b`와 합성 fixture Vault로 잰 값이며 표본이 작아 방향 확인용이다. 실제 Vault 합격 판정은 [S2 보고서](../../testing/career-retrieval-s2-report.md)의 검색 지표뿐이다.
+기준: 2026-10-12, `main` 브랜치. 전체 상태와 다음 작업은 [DIRECTION.md](../../DIRECTION.md)가 기준이다. "실제 모델"은 로컬 `gemma4:e4b`와 합성 fixture Vault로 잰 값이며 표본이 작아 방향 확인용이다. 실제 Vault 합격 판정은 [S2 보고서](../../testing/career-retrieval-s2-report.md)의 검색 지표뿐이다.
 
 | 영역 | 상태 | 근거 |
 |---|---|---|
@@ -69,6 +69,7 @@
 
 알려진 위험:
 
+- 모든 단계의 출력 한도가 1,400토큰으로 같아서, 실제 Vault의 긴 노트에서는 근거 확인·초안 단계 응답이 잘려 미완료가 된다(`Unexpected completion: length`). 합성 Vault에서는 드러나지 않았다.
 - 근거가 여러 개 모이면 요청이 토큰 예산을 넘어 실패할 수 있다(최종 평가 68회 중 1회). 근거 선별·압축 단계가 없다.
 - 판정 검색은 모델이 바쁘면 검색 제한 시간(30초)을 넘을 수 있고, 그러면 실행이 실패한다.
 - 근거 없는 문항에 관련성이 낮은 실제 경험으로 답하는 경우가 남아 있다(지어낸 주장은 아님).
@@ -80,5 +81,5 @@
 - 근거표·초안 버전·승인 이력을 담는 공통 상태.
 - 500자 같은 분량 조건의 코드 검사, 공고 URL 읽기.
 - `search_public_sources`, `save_working_note` 등록(의도적 보류).
-- 실제 Obsidian 수동 확인: [체크리스트](../../testing/obsidian-manual-checklist.md)는 준비됐고 실행 기록은 아직 없다.
+- 실제 Obsidian 수동 확인: 실제 Vault에서 실행해 위 출력 잘림을 발견했지만, [체크리스트](../../testing/obsidian-manual-checklist.md)를 끝까지 실행한 기록은 없다.
 
