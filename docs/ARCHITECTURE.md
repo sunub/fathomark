@@ -11,13 +11,13 @@ Obsidian Desktop
     ├── Vault Tool Registry
     ├── Obsidian Adapters
     ├── Model Provider Adapter
-    │       ├── localhost → Ollama / llama.cpp / LM Studio
-    │       └── hosted provider (planned; explicit consent, user's key)
+    │       ├── localhost → Ollama (chat model, bge-m3 embeddings)
+    │       └── user's Codex CLI (proposed, ADR 0010; explicit consent)
     └── Wikipedia Research Adapter
             └── network → Wikipedia
 ```
 
-The initial product contains no MCP transport and no product-owned companion daemon. A local model provider is a separately installed runtime; a hosted provider is planned behind the same adapter (ADR 0007).
+The initial product contains no MCP transport and no product-owned companion daemon. A local model provider is a separately installed runtime. Drafting with the user's own Codex CLI, another separately installed program, is proposed behind the same adapter (ADR 0010).
 
 ## Interaction boundary
 
@@ -92,7 +92,9 @@ interface ModelProvider {
 }
 ```
 
-The first provider remains an open decision: Ollama native API or generic OpenAI-compatible API.
+The first provider is Ollama's native API (`plugin/src/providers/ollama.ts`). Workflow steps that need a fixed answer shape use tool-less structured calls with a JSON schema (`plugin/src/providers/structured.ts`).
+
+The gates below were written for a local default model and have not been run. Because drafting uses tool-less structured calls and only the exploration step calls tools, their scope is an open decision ([DIRECTION.md](./DIRECTION.md#열린-결정)).
 
 The default model must support native tool or function calling through the selected provider, including schema-bound arguments and protocol-valid tool-result continuation. Prompting a plain text model to imitate JSON is not a supported primary path. The Agent Harness still validates every tool name and argument before execution and never treats model-declared capability as permission.
 
@@ -128,7 +130,7 @@ Canonical execution history is distinct from the compacted request view. Tool-ca
 
 ## Background work
 
-MVP retrieval is lexical and metadata-based. Expensive future work uses bounded workers and begins only after the workspace is ready. The plugin must not load models or scan the Vault during synchronous startup.
+Retrieval is hybrid: lexical search fused with local `bge-m3` embeddings, with a local judgement per candidate note (ADR 0009). Changed notes are indexed in the background after the workspace is ready and before each career run. Expensive work stays bounded and begins only after the workspace is ready. The plugin must not load models or scan the Vault during synchronous startup.
 
 ## Permission model
 
@@ -138,10 +140,10 @@ MVP retrieval is lexical and metadata-based. Expensive future work uses bounded 
 | Search/read Vault notes | Allowed and visible |
 | Insert into current note | Preview and explicit approval |
 | Modify multiple notes | Not available |
-| Use external model | Not available initially |
+| Use external model | Not available yet; drafting with the user's Codex CLI after consent is proposed (ADR 0010) |
 | Search/read Wikipedia | Explicit network permission and visible sources |
 | Access the general web | Not available initially |
-| Send Vault text off-device | Not available initially |
+| Send Vault text off-device | Not available yet; under ADR 0010 only the selected evidence, after consent |
 
 Vault content is not sent to Wikipedia. When Vault evidence and Wikipedia evidence disagree, the Context Packet preserves both claims, their source types, and their references so the answer can expose the conflict. Vault evidence is authoritative for the user's projects and intent; Wikipedia evidence is authoritative for general external facts.
 
@@ -149,17 +151,8 @@ Vault content is not sent to Wikipedia. When Vault evidence and Wikipedia eviden
 
 Wikipedia Research sends only a minimal Outbound Research Query. Query construction must exclude names, verbatim phrases, note paths, properties, and metadata learned only from Vault evidence. The execution trace shows the exact query sent over the network. Raw Vault content is never used as a Wikipedia request body or search query.
 
-## LangChain boundary
+## Framework boundary
 
-LangChain is an internal foundation within the Agent Harness, not the product boundary. It may provide:
+Fathomark does not use LangChain, LangGraph, or Deep Agents (ADR 0008). The fixed-step workflow (`plugin/src/workflow/career-graph.ts`) and the bounded exploration loop (`plugin/src/harness/agent-loop.ts`) are product-owned. The Agent Harness owns run state, tool allowlists, approval policy, context budgets, request and result limits, cancellation, Obsidian lifecycle, provenance, diff application, and recovery.
 
-- model and provider adapters
-- message and tool-call types
-- Zod-backed tool definitions
-- the bounded model/tool agent loop
-- streaming event normalization
-- middleware hooks around model and tool calls
-
-Fathomark wraps those capabilities in product-owned interfaces and events. The Agent Harness continues to own run state, tool allowlists, approval policy, context budgets, request and result limits, cancellation, Obsidian lifecycle, provenance, diff application, and recovery. LangChain types cannot leak into the Chat UI or Obsidian adapters.
-
-LangGraph persistence, checkpoints, and multi-step workflows are deferred until the product requires resumable or reusable runs. The MVP does not gain background autonomy or long-term memory merely by using LangChain.
+The dependency-cruiser rule that confines LangChain to the harness stays as a tripwire. If a framework is admitted later, its types cannot leak into the Chat UI or Obsidian adapters.

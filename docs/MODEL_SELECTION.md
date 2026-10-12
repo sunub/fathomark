@@ -2,7 +2,9 @@
 
 ## Status
 
-This document consolidates the model-selection decisions reached during product design. It defines what Fathomark needs from a model before naming a specific one. The model may be hosted (with the user's key and explicit consent) or local ([ADR 0007](./adr/0007-grounded-career-writing-with-hosted-models.md)); the latency, memory, and 16 GB baseline gates below apply to the optional local provider. Items under **Accepted criteria** are current product requirements. Items under **Open decisions** remain proposals and must not be treated as settled architecture.
+This document consolidates the model-selection decisions reached during product design. It defines what Fathomark needs from a model before naming a specific one. The model may be remote (with explicit consent) or local ([ADR 0007](./adr/0007-grounded-career-writing-with-hosted-models.md)); the latency, memory, and 16 GB baseline gates below apply to the optional local provider. Items under **Accepted criteria** are current product requirements. Items under **Open decisions** remain proposals and must not be treated as settled architecture.
+
+Where things stand on 2026-10-12: the app runs `gemma4:e4b` on Ollama by default, with `bge-m3` for retrieval embeddings, but neither was chosen through the gates below. The latency gates, the 200-scenario tool-call evaluation, and the variant comparison have not been run. The career workflow drafts through tool-less structured calls, so the scope of the native tool-calling requirement is an open decision. Measured real-model results are in [career-flow-real-model-report.md](./testing/career-flow-real-model-report.md) and [tokenizer-profiles.md](./testing/tokenizer-profiles.md). The proposed provider split, a local model for selection and checks and the user's Codex CLI for drafting, is [ADR 0010](./adr/0010-local-curation-codex-drafting.md). Current open decisions are listed in [DIRECTION.md](./DIRECTION.md#열린-결정).
 
 ## Workload to optimize
 

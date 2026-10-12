@@ -6,7 +6,7 @@ Fathomark is a desktop-only AI workspace for Obsidian. Its first experience, **V
 
 ## Status
 
-Phase 0. The plugin builds, opens a sidebar view, streams a fake response through the Agent Harness, cancels it, and unloads cleanly. No real model provider is connected yet, and no tool is registered.
+The career-writing workflow runs end to end on a local Ollama model (`gemma4:e4b` by default): request analysis, hybrid Vault retrieval, a readiness check, outline, draft, claim-by-claim verification, preview, and insertion after approval. Known problems and the next steps are in [DIRECTION.md](./docs/DIRECTION.md). Writing with the user's Codex CLI is proposed but not implemented ([ADR 0010](docs/adr/0010-local-curation-codex-drafting.md)).
 
 ## Network use
 
@@ -15,7 +15,7 @@ Both of today's network paths are listed here rather than buried:
 - **A local model provider over localhost.** You install and run it yourself — Ollama, llama.cpp, LM Studio or another. Today Fathomark sends vault content nowhere else.
 - **Wikipedia, only if you turn Wikipedia Research on.** It is off by default. Queries carry only public topic terms and never names, phrases, paths or metadata found only in your vault, and every query sent is visible in the run's tool activity.
 
-A hosted model provider, using your own API key, is planned ([ADR 0007](docs/adr/0007-grounded-career-writing-with-hosted-models.md)). It is not implemented yet. When it ships, vault content will leave your machine only after consent that shows what will be sent.
+Drafting with your own Codex CLI is proposed ([ADR 0010](docs/adr/0010-local-curation-codex-drafting.md)) and not implemented. When it ships, the local model selects the evidence a request needs, and only that evidence leaves your machine, after consent that shows what will be sent.
 
 There is no telemetry, no account, and no general web access.
 
@@ -24,10 +24,10 @@ There is no telemetry, no account, and no general web access.
 - Obsidian is the only user-facing product surface.
 - VS Code-style sidebar agents are an interaction reference, not an additional target platform or extension.
 - The initial Agent Harness runs inside the desktop plugin.
-- LangChain supports the model, message, tool, streaming, and agent-loop layer inside the product-owned harness; it does not define product permissions or lifecycle.
-- The model sits behind a replaceable provider adapter: a local provider such as Ollama or llama.cpp called over a local API today, and a hosted provider with your own key and explicit consent planned.
+- The workflow and agent loop are product-owned code; LangChain and LangGraph are not used ([ADR 0008](docs/adr/0008-no-agent-framework.md)).
+- The model sits behind a replaceable provider adapter: Ollama's native API today. The proposed split is a local model that selects and checks evidence and your Codex CLI that drafts, with the local model drafting when no Codex subscription is available.
 - There is no MCP server, general-purpose CLI product, or product-owned companion daemon in the initial architecture.
-- Vault content leaves your machine only after explicit consent that shows what will be sent. Network access is limited to a hosted model provider you choose and bounded Wikipedia Research; other network tools are deferred.
+- Vault content leaves your machine only after explicit consent that shows what will be sent. Network access is limited to a drafting model you choose and bounded Wikipedia Research; other network tools are deferred.
 - Fathomark does not train or fine-tune models. Personalization uses your own selected writing as examples ([ADR 0007](docs/adr/0007-grounded-career-writing-with-hosted-models.md)).
 
 ## MVP
@@ -59,11 +59,10 @@ The repository root is the plugin's publishing surface: `manifest.json` and `ver
 - [Technology stack](./docs/TECH_STACK.md)
 - [Plugin workspace, build and release](./docs/PLUGIN.md)
 - [Model selection and evaluation](./docs/MODEL_SELECTION.md)
-- [Roadmap](./docs/ROADMAP.md)
+- [Direction: current state, next steps, open decisions](./docs/DIRECTION.md)
 - [Domain language](./CONTEXT.md)
-- [Next session](./docs/NEXT_SESSION.md)
 - [Architecture decisions](./docs/adr/)
 
 ## Recommended next step
 
-Read [NEXT_SESSION.md](./docs/NEXT_SESSION.md) and continue the unresolved model-selection decisions before naming a default model.
+Read [DIRECTION.md](./docs/DIRECTION.md). The next step is the A/B check that decides ADR 0010.

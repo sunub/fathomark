@@ -49,11 +49,11 @@ The act of reducing selected Vault material while retaining claims, evidence, an
 _Avoid_: Arbitrary truncation, simple summary
 
 **Agent Harness**:
-The Fathomark-owned execution environment that governs model selection, tool access, context budgets, permissions, cancellation, retries, provenance, and observable run state. It may use LangChain internally without delegating these product policies to LangChain.
-_Avoid_: Model, chatbot, synonym for LangChain
+The Fathomark-owned execution environment that governs model selection, tool access, context budgets, permissions, cancellation, retries, provenance, and observable run state. It is product-owned code; no agent framework is used (ADR 0008).
+_Avoid_: Model, chatbot, synonym for an agent framework
 
 **Data Egress Consent**:
-The explicit user choice, shown before any request, that allows Vault content to be sent to a hosted model provider or network tool, including what will be sent. Vault retrieval and context preparation stay on the user's machine.
+The explicit user choice, shown before any request, that allows Vault content to be sent to a remote model (such as the user's Codex CLI) or network tool, including what will be sent. Vault retrieval and context preparation stay on the user's machine.
 _Avoid_: Silent upload, blanket permission, local-only operation
 
 **Model Provider**:

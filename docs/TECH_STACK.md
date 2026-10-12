@@ -8,14 +8,14 @@
 | Host | Desktop Obsidian plugin API |
 | Build | esbuild for `main.js`, Tailwind CSS v4 CLI for `styles.css` |
 | Validation | Zod |
-| Agent foundation | LangChain JS, behind Fathomark-owned interfaces |
+| Agent foundation | Product-owned workflow state machine and tool loop; no agent framework (ADR 0008) |
 | Model transport | Fetch through a small provider adapter |
 | UI | React 19 in one `ItemView`, on the `design-system` component library (ADR 0005) |
 | Settings | Obsidian `loadData` / `saveData` |
 | Tests | Vitest, plus dependency-cruiser for the architecture boundaries |
 | Background work | Bounded async queue; Worker only when measurement justifies it |
 
-MVP retrieval uses Obsidian Vault and metadata APIs. No native vector database or Python runtime is bundled with the plugin.
+Retrieval uses Obsidian Vault and metadata APIs plus `bge-m3` embeddings served by the local Ollama (ADR 0009). The index is a file in the plugin folder; no native vector database or Python runtime is bundled with the plugin.
 
 ## UI layer
 
@@ -25,37 +25,25 @@ The `design-system` workspace package holds the components and the token layer, 
 
 Styling is Tailwind CSS v4, compiled at build time to a static `styles.css`. Because Obsidian injects that file globally, Preflight is disabled, utilities carry a `tw:` prefix, content detection is explicit, and no rule selects outside `.fathomark-root`. The constraints and the reasoning are in [PLUGIN.md](./PLUGIN.md).
 
-The plugin does not expose React, Tailwind, or design-system types across the harness boundary any more than it exposes LangChain ones. The Chat UI reads `RunEvent` and calls commands; `pnpm boundaries` fails the build if that stops being true.
+The plugin does not expose React, Tailwind, or design-system types across the harness boundary any more than it exposes provider ones. The Chat UI reads `RunEvent` and calls commands; `pnpm boundaries` fails the build if that stops being true.
 
-## LangChain role
+## Agent foundation
 
-LangChain supports the replaceable mechanics of the agent loop:
+LangChain, LangGraph, and Deep Agents are not used (ADR 0008). Measured on 2026-10-05, LangGraph or `createAgent` alone would add more than 1 MB to `main.js` against a 900 KB budget, and the fixed-step workflow does not need an open agent loop. The workflow, the bounded exploration loop, structured calls, and their zod validation are product-owned and tested directly.
 
-- model and message abstractions
-- Zod-backed tool definitions and structured arguments
-- streaming model and tool events
-- bounded model-to-tool-to-model execution
-- middleware hooks for validation, tracing, retry boundaries, and event translation
-
-The MVP uses the `langchain` JavaScript package for `createAgent` and middleware, with `@langchain/core` types where direct model, message, and tool contracts are needed. Provider-specific integration packages are admitted only behind the product-owned `ModelProvider` adapter.
-
-The plugin does not expose LangChain objects directly to the Chat UI, Vault adapters, or persisted settings. Fathomark-owned `ModelProvider`, `ToolDefinition`, `RunEvent`, `ContextPacket`, and `EvidenceReference` contracts isolate the product from framework and provider changes.
-
-LangChain does not own permissions, context selection, context budgets, approval, provenance, Obsidian lifecycle, diff application, or recovery. Those remain explicit Agent Harness policies with independent tests.
+Fathomark-owned `ModelProvider`, `ToolDefinition`, `RunEvent`, `ContextPacket`, and `EvidenceReference` contracts isolate the product from provider changes.
 
 ## Deferred JavaScript capabilities
 
-- LangGraph persistence and checkpoints when resumable multi-step workflows become a product requirement
-- `@langchain/textsplitters` when measured retrieval quality shows chunking is necessary
-- Transformers.js or a local embedding API only after semantic retrieval is justified by evaluation
+- A workflow framework with persistence and checkpoints, only if resumable multi-session runs become a requirement and fit the bundle budget (ADR 0008)
 
 Deep Agent frameworks and autonomous background runtimes are not required for MVP.
 
 ## Model providers
 
-Providers sit behind the product-owned `ModelProvider` adapter. A hosted provider is called with the user's own API key after explicit Data Egress Consent that shows what will be sent; the first hosted provider, its contract, and key storage are open decisions. A local provider such as Ollama, llama.cpp, or LM Studio is called over localhost and stays supported as an option. The initial adapter is still to be selected ([ADR 0007](./adr/0007-grounded-career-writing-with-hosted-models.md)).
+Providers sit behind the product-owned `ModelProvider` adapter. Today the only provider is Ollama's native API over localhost; `gemma4:e4b` is the default chat model and `bge-m3` the embedding model. Proposed (ADR 0010): the local model selects and checks evidence, the user's own Codex CLI drafts after explicit Data Egress Consent, and the local model drafts when no Codex subscription is available.
 
-The default model must expose native tool/function calling through its adapter. Provider model discovery may list other models, but a local model is supported only after passing the product's latency and tool-call evaluation gates; prompt-only JSON emulation is not the default integration path.
+Workflow steps use tool-less structured calls with a JSON schema; native tool calling is used only in the exploration step. Whether the tool-calling evaluation gates in [MODEL_SELECTION.md](./MODEL_SELECTION.md) apply beyond that step is an open decision ([DIRECTION.md](./DIRECTION.md#열린-결정)).
 
 ## Model training
 

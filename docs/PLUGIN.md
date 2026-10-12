@@ -31,9 +31,11 @@ plugin/src/
 ├── view/          the ItemView, and the only place React meets Obsidian
 ├── ui/            Chat UI — presentation only
 ├── harness/       Agent Harness — run state, permissions, budget, cancellation
+├── workflow/      the fixed-step career workflow and its checks
+├── retrieval/     the semantic index — chunking, embeddings, background indexing
 ├── context/       Agent Context Pipeline — ContextPacket, EvidenceReference
 ├── tools/         Tool Registry
-├── providers/     ModelProvider adapters, including the deterministic fake
+├── providers/     ModelProvider adapters (Ollama, embeddings, judge), structured calls, the deterministic fake for tests
 ├── obsidian/      Vault and editor adapters
 └── settings/      persisted settings
 ```
@@ -43,7 +45,7 @@ Two boundaries from the architecture are enforced by `pnpm boundaries`, not by r
 - **The Chat UI owns no policy.** It reads `RunEvent` and calls two commands. It cannot import the harness engine, a provider, a tool, or `obsidian`.
 - **LangChain stays inside the harness.** Nothing outside `src/harness` may import it.
 
-The second rule guards something that does not exist yet. LangChain is absent from the current bundle on purpose: Phase 0 only needs a stream that starts, is watched and is cancelled, and keeping the seam empty for one phase gives a size baseline to compare `createAgent` against.
+The second rule guards something the plugin does not use. LangChain and LangGraph were measured and not adopted (ADR 0008); the rule stays as a tripwire so that any later framework is confined to the harness.
 
 ## Build
 
