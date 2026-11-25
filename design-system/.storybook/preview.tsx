@@ -28,11 +28,10 @@ const preview: Preview = {
           "Fathomark",
           ["Introduction", "Foundations", ["Colour", "Typography", "Metrics"], "Chat"],
           "Components",
-          "Example",
         ],
       },
     },
-    a11y: { test: "todo" },
+    a11y: { test: "error" },
     // The decorator paints the surface; Storybook's own background control would
     // only fight it.
     backgrounds: { disable: true },
