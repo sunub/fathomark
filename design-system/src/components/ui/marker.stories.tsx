@@ -36,7 +36,7 @@ function ToolRow({
   running?: boolean
 }) {
   const ring = tone === "vault" ? "tw:border-fm-vault-line tw:bg-fm-vault-tint" : "tw:border-fm-external-line tw:bg-fm-external-tint"
-  const ink = tone === "vault" ? "text-fm-vault" : "text-fm-external"
+  const ink = tone === "vault" ? "tw:text-fm-vault" : "tw:text-fm-external"
 
   return (
     <Marker className="tw:px-2.5 tw:py-2">
@@ -49,7 +49,7 @@ function ToolRow({
       </MarkerIcon>
       <MarkerContent className="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-2 tw:font-fm-mono tw:text-fm-caption">
         <span className="tw:text-fm-text-dim">{name}</span>
-        <span className="tw:min-w-0 tw:flex-1 tw:truncate tw:text-fm-text-faint">{arg}</span>
+        <span className="tw:min-w-0 tw:flex-1 tw:truncate tw:text-fm-text-muted">{arg}</span>
         <span className={`tw:shrink-0 tw:text-fm-micro ${running ? ink : "tw:text-fm-text-muted"}`}>{result}</span>
       </MarkerContent>
     </Marker>
