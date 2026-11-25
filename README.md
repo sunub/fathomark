@@ -2,6 +2,8 @@
 
 **Grounded intelligence for your notes.**
 
+- **Design System Storybook (Live):** https://sunub.github.io/fathomark/
+
 Fathomark is a desktop-only AI workspace for Obsidian. Its first experience, **Vault Chat**, brings the visible, tool-using sidebar workflow familiar from modern editor agents into Obsidian: it uses the current note and selected evidence to produce source-grounded answers and proposes note changes for explicit user approval. Its first job is career writing: turning a job posting or application question into resume bullets and essay answers that cite your own notes and read like your own writing.
 
 ## Status
