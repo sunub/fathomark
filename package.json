@@ -11,8 +11,10 @@
     "build": "pnpm --filter fathomark-plugin run build",
     "typecheck": "pnpm --filter fathomark-plugin run typecheck",
     "test": "pnpm --filter fathomark-plugin run test",
+    "test:ds": "pnpm --filter @fathomark/design-system run test",
     "boundaries": "pnpm --filter fathomark-plugin run boundaries",
     "storybook": "pnpm --filter @fathomark/design-system run storybook",
+    "build:storybook": "pnpm --filter @fathomark/design-system run build-storybook",
     "version": "node scripts/version-bump.mjs && git add manifest.json versions.json"
   }
 }
